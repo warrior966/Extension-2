@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Focus Guard · Administración</title>
+  <link rel="stylesheet" href="admin.css">
+  <script src="admin.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-icon">FG</span><span><strong>Focus Guard</strong><small>Administración educativa</small></span></div>
+    <nav aria-label="Navegación principal">
+      <a class="nav-link active" href="#overview">▦ <span>Resumen</span></a>
+      <a class="nav-link" href="#devices">▣ <span>Dispositivos</span></a>
+      <a class="nav-link" href="#policies">◈ <span>Políticas</span></a>
+      <a class="nav-link" href="#audit">≡ <span>Auditoría</span></a>
+    </nav>
+    <div class="sidebar-note"><span class="status-dot"></span> Prototipo local <p>Los datos de esta demo se guardan en este navegador.</p></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><p class="eyebrow">CENTRO EDUCATIVO / IT</p><h1>Panel de administración</h1></div><span class="admin-pill">Administrador · Demo</span></header>
+    <section id="overview" class="section">
+      <div class="section-heading"><div><h2>Resumen del centro</h2><p>Vista general del inventario y las políticas locales.</p></div><button id="exportBtn" class="btn secondary">Exportar inventario CSV</button></div>
+      <div class="stats">
+        <article class="stat-card"><span>Dispositivos registrados</span><strong id="deviceCount">0</strong><small>En el inventario local</small></article>
+        <article class="stat-card"><span>Marcados como activos</span><strong id="activeCount">0</strong><small>Estado registrado manualmente</small></article>
+        <article class="stat-card"><span>Perfiles de política</span><strong id="policyCount">0</strong><small>Configuraciones de ejemplo</small></article>
+        <article class="stat-card"><span>Eventos de auditoría</span><strong id="eventCount">0</strong><small>Acciones de esta demo</small></article>
+      </div>
+    </section>
+    <section id="devices" class="section panel">
+      <div class="section-heading"><div><h2>Inventario de dispositivos</h2><p>Registra equipos autorizados y asígnalos a un aula o grupo.</p></div><button id="addDeviceBtn" class="btn primary">+ Registrar equipo</button></div>
+      <div class="toolbar"><input id="deviceSearch" type="search" placeholder="Buscar por nombre, aula o responsable…" aria-label="Buscar dispositivos"><select id="statusFilter" aria-label="Filtrar por estado"><option value="all">Todos los estados</option><option value="Activo">Activo</option><option value="Mantenimiento">Mantenimiento</option><option value="Retirado">Retirado</option></select></div>
+      <div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Aula / grupo</th><th>Responsable</th><th>Plataforma</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
+      <p id="emptyDevices" class="empty" hidden>No hay equipos que coincidan. Registra uno para comenzar.</p>
+    </section>
+    <section id="policies" class="section panel">
+      <div class="section-heading"><div><h2>Perfiles de políticas</h2><p>Ejemplos de políticas que un administrador puede documentar por grupo.</p></div><button id="addPolicyBtn" class="btn primary">+ Crear perfil</button></div>
+      <div id="policyList" class="policy-grid"></div>
+      <p class="notice">Estos perfiles son registros de configuración de la demo. No se aplican automáticamente a otros equipos. Para desplegarlos, integra una plataforma de gestión autorizada (MDM o políticas empresariales de Chrome).</p>
+    </section>
+    <section id="audit" class="section panel">
+      <div class="section-heading"><div><h2>Registro de auditoría</h2><p>Historial local de cambios realizados en esta interfaz.</p></div><button id="clearAuditBtn" class="btn secondary">Vaciar registro</button></div>
+      <div id="auditList" class="audit-list"></div>
+    </section>
+    <footer>Focus Guard · Prototipo de administración · Sin servidor ni telemetría.</footer>
+  </main>
+  <dialog id="deviceDialog">
+    <form id="deviceForm" method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">INVENTARIO</p><h2 id="deviceDialogTitle">Registrar equipo</h2></div><button type="button" class="icon-btn" data-close="deviceDialog" aria-label="Cerrar">×</button></div>
+      <input type="hidden" id="deviceId">
+      <label>Nombre del equipo<input id="deviceName" required maxlength="80" placeholder="Portátil Aula 2-01"></label>
+      <div class="form-row"><label>Aula / grupo<input id="deviceRoom" required maxlength="80" placeholder="Aula 2 · 3º ESO"></label><label>Responsable<input id="deviceOwner" maxlength="80" placeholder="Departamento TIC"></label></div>
+      <div class="form-row"><label>Plataforma<select id="devicePlatform"><option>ChromeOS</option><option>Windows</option><option>macOS</option><option>Linux</option><option>Otro</option></select></label><label>Estado<select id="deviceStatus"><option>Activo</option><option>Mantenimiento</option><option>Retirado</option></select></label></div>
+      <div class="dialog-actions"><button type="button" class="btn secondary" data-close="deviceDialog">Cancelar</button><button class="btn primary" type="submit">Guardar equipo</button></div>
+    </form>
+  </dialog>
+  <dialog id="policyDialog">
+    <form id="policyForm" method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">CONFIGURACIÓN</p><h2>Crear perfil de política</h2></div><button type="button" class="icon-btn" data-close="policyDialog" aria-label="Cerrar">×</button></div>
+      <label>Nombre del perfil<input id="policyName" required maxlength="80" placeholder="Aula de informática"></label>
+      <label>Grupo destinatario<input id="policyGroup" required maxlength="80" placeholder="Alumnado · 1º ESO"></label>
+      <label>Notas de política<textarea id="policyNotes" rows="3" maxlength="500" placeholder="Ej. Permitir recursos educativos; bloquear redes sociales durante clase."></textarea></label>
+      <div class="dialog-actions"><button type="button" class="btn secondary" data-close="policyDialog">Cancelar</button><button class="btn primary" type="submit">Crear perfil</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
