@@ -1,25 +1,36 @@
-# Focus Guard · Panel de administración educativa
+# Focus Guard · Panel de administración
 
-Panel web estático para inventario de equipos, documentación de perfiles de política y auditoría local.
+Panel web que usa Firebase Authentication para iniciar sesión y Cloud Firestore para compartir inventario, perfiles documentales y auditoría entre administradores.
 
-## Abrir
+## Configuración inicial
 
-Abre `index.html` en un navegador moderno o sirve la carpeta `admin/` mediante un servidor web estático. No requiere dependencias ni compilación.
+1. En Firebase Console, abre el proyecto `fidelazion`.
+2. En **Authentication → Sign-in method**, habilita **Email/Password**.
+3. En **Firestore Database**, crea la base de datos si todavía no existe.
+4. Publica las reglas del archivo raíz `firestore.rules`:
+   - Con Firebase CLI instalado y autenticado, desde la raíz del repositorio ejecuta `firebase deploy --only firestore:rules --project fidelazion`.
+   - Alternativamente, copia el contenido de `firestore.rules` en la pestaña **Firestore → Rules** y pulsa **Publish**.
+5. En Authentication, crea una cuenta para el administrador inicial.
+6. Copia el **UID** de esa cuenta. En Firestore crea manualmente un documento en la colección `users` con el ID exactamente igual al UID y estos datos:
+   ```json
+   { "role": "admin" }
+   ```
+   Los roles válidos son `admin`, `operator` y `viewer`. Solo el personal de confianza debe asignar roles desde la consola o Admin SDK; el panel web no puede crear ni cambiar roles.
+7. Sirve la carpeta `admin/` mediante un servidor web estático (por ejemplo, Firebase Hosting o un servidor local). Para módulos JavaScript, no abras el archivo con `file://`; usa HTTP/HTTPS.
+8. Abre el panel e inicia sesión. Los registros se almacenan en las colecciones `devices`, `policies` y `audit`.
 
-## Funciones de la demo
+## Permisos
 
-- Inventario local: registrar, editar, buscar, filtrar y eliminar registros de equipos.
-- Perfiles de política: documentar grupos, propósito y notas de configuración.
-- Auditoría local: registra las acciones realizadas desde esta interfaz.
-- Exportación del inventario a CSV.
-- Persistencia en `localStorage` del navegador actual.
+- `admin`: consultar y modificar registros, eliminar equipos/perfiles y leer auditoría.
+- `operator`: consultar y crear/editar equipos y crear perfiles; puede leer auditoría.
+- `viewer`: consultar equipos y perfiles. No puede leer auditoría ni modificar datos.
 
-## Limitaciones importantes
+Las reglas de Firestore son la barrera de seguridad real; las restricciones de interfaz solo mejoran la experiencia. Revisa y prueba las reglas antes de almacenar información real.
 
-Esta versión es un **prototipo local**, no una consola multiusuario ni un sistema de administración remota. Los dispositivos de ejemplo no están conectados ni se consultan en tiempo real. Los perfiles son documentación: no se despliegan ni aplican políticas automáticamente. Los datos se guardan en el navegador y no se sincronizan con otros administradores.
+## Límites importantes
 
-Para un despliegue escolar real, añade autenticación y autorización del lado del servidor, una API con base de datos, comunicación segura con agentes inscritos, gestión de claves, retención limitada de registros y controles de acceso por rol. Para aplicar políticas en dispositivos, integra herramientas autorizadas como Google Admin/Chrome Enterprise o la solución MDM del centro. No uses datos identificativos reales en esta demo.
-
-## Privacidad
-
-No envía telemetría ni datos a un servidor. El inventario local puede incluir nombres de equipos y responsables; usa datos ficticios mientras evalúas el prototipo.
+- El inventario refleja registros manuales en la nube, no conectividad en tiempo real.
+- Los perfiles de políticas son documentación y **no se aplican** automáticamente a los PC Windows.
+- No hay agente Windows, inscripción de dispositivos, telemetría de estado ni despliegue remoto.
+- Configuración Firebase del cliente incluida en `admin.js` identifica el proyecto; no es un secreto. Nunca incluyas claves de cuenta de servicio ni credenciales de Admin SDK en el navegador.
+- No se ha validado esta versión en el proyecto Firebase ni se han ejecutado pruebas de integración. Antes de producción, prueba reglas con cuentas de cada rol, activa protecciones de cuenta, configura copias de seguridad y revisa privacidad/retención de auditoría.
