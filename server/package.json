@@ -1,0 +1,23 @@
+{
+  "name": "focus-guard-school-api",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Prototype API for authorized school device inventory and policy documentation",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.8.1",
+    "connect-sqlite3": "^0.9.16",
+    "csrf-sync": "^4.2.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "zod": "^3.24.2"
+  }
+}
