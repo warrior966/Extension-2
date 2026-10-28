@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Focus Guard</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="mark">FG</div>
+      <div>
+        <h1>Focus Guard</h1>
+        <p class="subtitle">Tu concentración, tus reglas.</p>
+      </div>
+    </header>
+
+    <section class="status-card">
+      <div>
+        <strong id="status-title">Bloqueo desactivado</strong>
+        <p id="status-description">Los sitios de la lista están permitidos.</p>
+      </div>
+      <label class="switch" aria-label="Activar bloqueo">
+        <input id="enabled" type="checkbox">
+        <span class="slider"></span>
+      </label>
+    </section>
+
+    <section>
+      <h2>Sitios bloqueados</h2>
+      <form id="add-form">
+        <label class="sr-only" for="domain">Dominio</label>
+        <input id="domain" placeholder="youtube.com" autocomplete="off" spellcheck="false">
+        <button type="submit">Añadir</button>
+      </form>
+      <p class="hint">Escribe un dominio, sin https:// ni rutas.</p>
+      <p id="message" role="status" aria-live="polite"></p>
+      <ul id="domains"></ul>
+      <p id="empty" class="empty">Todavía no has añadido sitios.</p>
+    </section>
+
+    <footer>La configuración se guarda solo en este navegador.</footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
