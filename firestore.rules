@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() { return signedIn() && role() == 'admin'; }
+    function canOperate() { return signedIn() && role() in ['admin', 'operator']; }
+    function validDevice() {
+      return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','updatedBy'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.room is string && request.resource.data.room.size() > 0 && request.resource.data.room.size() <= 80
+        && request.resource.data.owner is string && request.resource.data.owner.size() <= 80
+        && request.resource.data.platform in ['Windows','ChromeOS','macOS','Linux','Otro']
+        && request.resource.data.status in ['Activo','Mantenimiento','Retirado']
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      // Los roles se asignan desde un entorno de confianza, nunca desde el cliente web.
+      allow create, update, delete: if false;
+    }
+    match /devices/{id} {
+      allow read: if signedIn() && role() in ['admin','operator','viewer'];
+      allow create, update: if canOperate() && validDevice();
+      allow delete: if isAdmin();
+    }
+    match /policies/{id} {
+      allow read: if signedIn() && role() in ['admin','operator','viewer'];
+      allow create: if canOperate()
+        && request.resource.data.keys().hasOnly(['name','group','notes','createdAt','createdBy'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
+        && request.resource.data.group is string && request.resource.data.group.size() > 0 && request.resource.data.group.size() <= 80
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 500
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+    match /audit/{id} {
+      allow read: if signedIn() && role() in ['admin','operator'];
+      allow create: if canOperate()
+        && request.resource.data.keys().hasOnly(['action','detail','actorUid','actorEmail','at'])
+        && request.resource.data.action is string && request.resource.data.action.size() <= 120
+        && request.resource.data.detail is string && request.resource.data.detail.size() <= 500
+        && request.resource.data.actorUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
