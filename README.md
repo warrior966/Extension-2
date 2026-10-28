@@ -1,22 +1,23 @@
 # Focus Guard
 
-Herramientas iniciales para productividad y administración educativa. Para un centro con menos de 100 PC Windows, la fase 2 añade una API central de inventario y perfiles de políticas.
+Herramientas iniciales para productividad y administración educativa.
 
 ## Componentes
 
 - **Extensión Chrome**: bloqueo local de dominios elegidos por el usuario.
-- **Panel web estático** (`admin/`): inventario de demostración, perfiles documentales y auditoría local. Sus datos no se sincronizan con el servidor.
-- **API escolar** (`server/`): backend Node.js con SQLite, inicio de sesión por sesión, roles, validación de datos, protección CSRF y auditoría de cambios.
+- **Panel web** (`admin/`): inicio de sesión con Firebase Authentication; inventario, perfiles documentales y auditoría compartidos mediante Cloud Firestore.
+- **Reglas Firestore** (`firestore.rules`): autorización por rol (`admin`, `operator`, `viewer`). Configuración de despliegue en `firebase.json`.
+- **API anterior** (`server/`): backend Node.js/SQLite independiente, conservado como prototipo y no usado por el panel Firebase.
 
-## Panel local
+## Configurar el panel Firebase
 
-Abre [admin/index.html](admin/index.html) en un navegador moderno. Consulta [admin/README.md](admin/README.md).
+Consulta [admin/README.md](admin/README.md) para activar Email/Password, publicar las reglas, crear la primera cuenta y asignar su rol en la colección `users`.
 
-## API de administración (fase 2)
+Panel: [admin/index.html](admin/index.html)
 
-Consulta [server/README.md](server/README.md) para requisitos, configuración, rutas y límites. Requiere Node.js 20+ y npm. La API escucha en localhost por defecto; define credenciales iniciales y un secreto de sesión en el entorno.
+## Límites importantes
 
-La API permite inventariar equipos, crear perfiles de política y consultar acciones administrativas según el rol. **No está conectada al panel estático ni a equipos Windows reales.** El endpoint de salud declara expresamente `deviceConnectivity: not-integrated`. No hay agente Windows ni despliegue remoto de políticas.
+La integración Firebase sincroniza registros de inventario y perfiles; **no detecta ni administra los PC Windows reales**. Los perfiles no se despliegan automáticamente. No hay agente Windows, estado de conectividad ni ejecución remota de comandos. Esta versión no se ha probado en el proyecto Firebase ni está lista para producción: valida las reglas con cada rol y revisa privacidad, retención de auditoría y recuperación de cuentas antes de usar datos reales.
 
 ## Instalar la extensión
 
@@ -25,9 +26,3 @@ La API permite inventariar equipos, crear perfiles de política y consultar acci
 3. Activa **Modo de desarrollador**.
 4. Pulsa **Cargar descomprimida** y selecciona la carpeta del proyecto.
 5. Abre el popup de Focus Guard, añade dominios y activa el bloqueo.
-
-## Límites y despliegue escolar
-
-Este repositorio aún no es una solución de gestión lista para producción. Antes de usarlo con datos reales, hay que probar y revisar el backend, completar gestión de usuarios y recuperación/rotación de contraseñas, preparar copias de seguridad y desplegar detrás de HTTPS en una red restringida. Para gestionar Windows, la siguiente fase debe diseñar un agente de servicio firmado con inscripción por dispositivo, revocación de credenciales y políticas permitidas, o integrar una solución de gestión de endpoints ya establecida. No se acepta ejecución arbitraria de comandos.
-
-Usa datos ficticios durante las pruebas y limita los registros a lo necesario para la administración del centro. No recopila datos en la nube por sí mismo.
