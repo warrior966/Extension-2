@@ -39,6 +39,9 @@ Comprueba el estado con `GET /api/health`. El endpoint devuelve `deviceConnectiv
 | POST | `/api/policies` | Admin u operador |
 | DELETE | `/api/policies/:id` | Solo administrador |
 | GET | `/api/audit` | Admin u operador |
+| GET | `/api/users` | Solo administrador |
+| POST | `/api/users` | Solo administrador; crea usuario y rol |
+| DELETE | `/api/users/:id` | Solo administrador; protege la última cuenta admin |
 
 Las solicitudes que modifican datos requieren `X-CSRF-Token`. Solicita el token con `GET /api/csrf` y conserva la cookie de sesión. Tras iniciar sesión, usa el token devuelto en la respuesta. Las rutas de escritura validan los campos y limitan el tamaño del JSON.
 
@@ -48,7 +51,7 @@ Las solicitudes que modifican datos requieren `X-CSRF-Token`. Solicita el token 
 - **operator:** registra y modifica equipos, crea perfiles y consulta auditoría.
 - **viewer:** consulta inventario y perfiles.
 
-La creación de usuarios adicionales y la interfaz para gestionar roles aún no están implementadas. El primer usuario es administrador; no uses la API en producción hasta completar gestión de usuarios, recuperación/cambio de contraseñas y pruebas de seguridad.
+El administrador puede crear usuarios con roles `admin`, `operator` o `viewer`, listarlos y eliminar cuentas que no sean la propia. La API impide eliminar al último administrador. Aún faltan cambio y recuperación de contraseñas, revocación de todas las sesiones de un usuario y una interfaz gráfica para gestionar cuentas. No uses la API en producción sin completar esas funciones y realizar pruebas de seguridad.
 
 ## Controles incluidos
 
