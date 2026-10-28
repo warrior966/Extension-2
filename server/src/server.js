@@ -186,6 +186,35 @@ app.use("/api", (req,res,next) => {
 });
 app.use("/api", writeLimiter);
 
+app.get("/api/users", roles("admin"), (_req,res) => {
+  res.json({items:db.prepare("SELECT id,username,role,created_at FROM users ORDER BY username").all()});
+});
+app.post("/api/users", roles("admin"), (req,res) => {
+  const parsed=z.object({
+    username:z.string().trim().min(3).max(60).regex(/^[a-zA-Z0-9._-]+$/),
+    password:z.string().min(12).max(200),
+    role:z.enum(["admin","operator","viewer"])
+  }).strict().safeParse(req.body);
+  if(!parsed.success) return res.status(400).json({error:"Datos no válidos.",details:parsed.error.issues.map(i=>({field:i.path.join("."),message:i.message}))});
+  const {username,password,role}=parsed.data;
+  if(db.prepare("SELECT id FROM users WHERE username=?").get(username)) return res.status(409).json({error:"Ese nombre de usuario ya existe."});
+  const hash=bcrypt.hashSync(password,12);
+  const result=db.prepare("INSERT INTO users(username,password_hash,role,created_at) VALUES(?,?,?,?)").run(username,hash,role,new Date().toISOString());
+  audit(req.session.user.username,"user_created",username+" · rol "+role);
+  res.status(201).json({item:db.prepare("SELECT id,username,role,created_at FROM users WHERE id=?").get(result.lastInsertRowid)});
+});
+app.delete("/api/users/:id", roles("admin"), (req,res) => {
+  const id=Number(req.params.id);
+  if(!Number.isSafeInteger(id)||id<1) return res.status(400).json({error:"Identificador no válido."});
+  if(id===req.session.user.id) return res.status(400).json({error:"No puedes eliminar tu propia cuenta mientras tienes la sesión abierta."});
+  const user=db.prepare("SELECT id,username,role FROM users WHERE id=?").get(id);
+  if(!user) return res.status(404).json({error:"Usuario no encontrado."});
+  if(user.role==="admin" && db.prepare("SELECT COUNT(*) AS count FROM users WHERE role='admin'").get().count<=1) return res.status(409).json({error:"No se puede eliminar el último administrador."});
+  db.prepare("DELETE FROM users WHERE id=?").run(id);
+  audit(req.session.user.username,"user_deleted",user.username+" · rol "+user.role);
+  res.status(204).end();
+});
+
 app.get("/api/devices", (req,res) => {
   const q=String(req.query.q||"").slice(0,100);
   const status=String(req.query.status||"");
