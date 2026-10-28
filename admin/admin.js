@@ -41,6 +41,7 @@ function renderAudit() {
   stats();
 }
 async function loadAudit() {
+  if (role === "viewer") { audit = []; renderAudit(); return; }
   const snap = await getDocs(query(collection(db, "audit"), orderBy("at", "desc"), limit(100)));
   audit = snap.docs.map(d => ({id:d.id,...d.data()})); renderAudit();
 }
