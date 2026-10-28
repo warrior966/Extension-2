@@ -1,25 +1,22 @@
 # Focus Guard
 
-Extensión Chrome Manifest V3 para gestionar una lista local de sitios que quieres bloquear durante sesiones de concentración.
+Herramientas iniciales para productividad y administración educativa. Para un centro con menos de 100 PC Windows, la fase 2 añade una API central de inventario y perfiles de políticas.
 
 ## Componentes
 
-- **Extensión Chrome**: bloqueo local de dominios configurados por el usuario.
-- **Panel de administración educativa**: prototipo estático para inventario, perfiles de políticas y auditoría local.
+- **Extensión Chrome**: bloqueo local de dominios elegidos por el usuario.
+- **Panel web estático** (`admin/`): inventario de demostración, perfiles documentales y auditoría local. Sus datos no se sincronizan con el servidor.
+- **API escolar** (`server/`): backend Node.js con SQLite, inicio de sesión por sesión, roles, validación de datos, protección CSRF y auditoría de cambios.
 
-## Abrir el panel educativo
+## Panel local
 
-Abre [admin/index.html](admin/index.html) en un navegador moderno, o sirve la carpeta `admin/` con un servidor web estático. Consulta [admin/README.md](admin/README.md) para instrucciones y limitaciones.
+Abre [admin/index.html](admin/index.html) en un navegador moderno. Consulta [admin/README.md](admin/README.md).
 
-### Funciones del panel
+## API de administración (fase 2)
 
-- Registrar, editar, buscar y filtrar el inventario de dispositivos.
-- Asignar aula/grupo, responsable, plataforma y estado a cada registro.
-- Documentar perfiles de política para grupos educativos.
-- Consultar un historial local de cambios.
-- Exportar el inventario como CSV.
+Consulta [server/README.md](server/README.md) para requisitos, configuración, rutas y límites. Requiere Node.js 20+ y npm. La API escucha en localhost por defecto; define credenciales iniciales y un secreto de sesión en el entorno.
 
-**Importante:** el panel actual es una demo local. No tiene servidor, autenticación, sincronización entre administradores ni conexión real con los dispositivos. Los perfiles de política no se aplican remotamente.
+La API permite inventariar equipos, crear perfiles de política y consultar acciones administrativas según el rol. **No está conectada al panel estático ni a equipos Windows reales.** El endpoint de salud declara expresamente `deviceConnectivity: not-integrated`. No hay agente Windows ni despliegue remoto de políticas.
 
 ## Instalar la extensión
 
@@ -29,16 +26,8 @@ Abre [admin/index.html](admin/index.html) en un navegador moderno, o sirve la ca
 4. Pulsa **Cargar descomprimida** y selecciona la carpeta del proyecto.
 5. Abre el popup de Focus Guard, añade dominios y activa el bloqueo.
 
-## Formato de dominios
+## Límites y despliegue escolar
 
-Introduce solo el nombre de dominio, sin protocolo ni ruta. Ejemplos: `youtube.com`, `www.reddit.com`.
+Este repositorio aún no es una solución de gestión lista para producción. Antes de usarlo con datos reales, hay que probar y revisar el backend, completar gestión de usuarios y recuperación/rotación de contraseñas, preparar copias de seguridad y desplegar detrás de HTTPS en una red restringida. Para gestionar Windows, la siguiente fase debe diseñar un agente de servicio firmado con inscripción por dispositivo, revocación de credenciales y políticas permitidas, o integrar una solución de gestión de endpoints ya establecida. No se acepta ejecución arbitraria de comandos.
 
-## Privacidad y límites
-
-La extensión almacena la configuración en el navegador y no envía datos a servidores externos. Esta herramienta no modifica políticas administradas por una organización, no evade controles de supervisión y no altera extensiones de terceros. En dispositivos gestionados, las políticas del administrador pueden limitar su instalación o funcionamiento.
-
-Para gestionar equipos escolares reales, integra el panel con una API autenticada y una solución autorizada de gestión de dispositivos (MDM o políticas empresariales de Chrome). Usa datos ficticios en esta demo y evita recopilar datos personales innecesarios.
-
-## Desarrollo
-
-No requiere dependencias ni proceso de compilación. Usa JavaScript estándar y Manifest V3.
+Usa datos ficticios durante las pruebas y limita los registros a lo necesario para la administración del centro. No recopila datos en la nube por sí mismo.
