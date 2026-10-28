@@ -206,7 +206,7 @@ app.patch("/api/devices/:id", roles("admin","operator"), (req,res) => {
   if(!Object.keys(d).length)return res.status(400).json({error:"No hay campos para actualizar."});
   const old=db.prepare("SELECT * FROM devices WHERE id=?").get(req.params.id);
   if(!old)return res.status(404).json({error:"Equipo no encontrado."});
-  const merged=DeviceSchema.parse({...old,...d});
+  const merged=DeviceSchema.parse({name:old.name,room:old.room,owner:old.owner,platform:old.platform,status:old.status,notes:old.notes,...d});
   db.prepare("UPDATE devices SET name=@name,room=@room,owner=@owner,platform=@platform,status=@status,notes=@notes,updated_at=@now WHERE id=@id")
     .run({...merged,id:old.id,now:new Date().toISOString()});
   audit(req.session.user.username,"device_updated",old.id+" · "+merged.name);
