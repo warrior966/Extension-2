@@ -6,10 +6,10 @@ const SESSION_KEY = "fgFirebaseSession";
 
 function normalizeDomain(value) {
   let domain = String(value || "").trim().toLowerCase();
-  domain = domain.replace(/^https?:\\/\\//, "").split(/[/?#]/, 1)[0];
-  domain = domain.replace(/^www\\./, "").replace(/\\.$/, "");
+  domain = domain.replace(/^https?:\/\//, "").split(/[/?#]/, 1)[0];
+  domain = domain.replace(/^www\./, "").replace(/\.$/, "");
   if (!domain || domain.length > 253 || !domain.includes(".")) return null;
-  if (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i.test(domain)) return null;
+  if (!/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain)) return null;
   return domain;
 }
 
