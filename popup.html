@@ -10,21 +10,23 @@
   <main>
     <header>
       <div class="mark">FG</div>
-      <div>
-        <h1>Focus Guard</h1>
-        <p class="subtitle">Tu concentración, tus reglas.</p>
-      </div>
+      <div><h1>Focus Guard</h1><p class="subtitle">Navegación y sincronización</p></div>
     </header>
 
     <section class="status-card">
-      <div>
-        <strong id="status-title">Bloqueo desactivado</strong>
-        <p id="status-description">Los sitios de la lista están permitidos.</p>
-      </div>
-      <label class="switch" aria-label="Activar bloqueo">
-        <input id="enabled" type="checkbox">
-        <span class="slider"></span>
-      </label>
+      <div><strong id="status-title">Bloqueo desactivado</strong><p id="status-description">Los sitios de la lista están permitidos.</p></div>
+      <label class="switch" aria-label="Activar bloqueo"><input id="enabled" type="checkbox"><span class="slider"></span></label>
+    </section>
+
+    <section class="device-card">
+      <h2>Este perfil de Chromebook</h2>
+      <label for="device-name">Nombre del perfil</label>
+      <input id="device-name" maxlength="80" placeholder="Chromebook-Aula-01">
+      <label for="device-room">Aula / grupo</label>
+      <input id="device-room" maxlength="80" placeholder="Aula 1">
+      <button id="sync-device" type="button">Guardar y sincronizar</button>
+      <p id="sync-status" role="status" aria-live="polite">Comprobando conexión con Firebase…</p>
+      <p class="hint">Cada perfil de Chrome se registra por separado. No se recopila el nombre de la persona que inicia sesión en ChromeOS.</p>
     </section>
 
     <section>
@@ -39,8 +41,7 @@
       <ul id="domains"></ul>
       <p id="empty" class="empty">Todavía no has añadido sitios.</p>
     </section>
-
-    <footer>La configuración se guarda solo en este navegador.</footer>
+    <footer>Los datos de sincronización son del perfil de Chrome, no una identificación física garantizada del Chromebook.</footer>
   </main>
   <script src="popup.js"></script>
 </body>
