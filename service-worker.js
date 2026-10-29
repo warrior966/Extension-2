@@ -3,7 +3,6 @@ const FIRST_RULE_ID = 1000;
 const FIREBASE_API_KEY = "AIzaSyAHpkWaFwwI-QJWd06Dzkt6kc2tJXSkdA0";
 const FIREBASE_PROJECT_ID = "fidelazion";
 const SESSION_KEY = "fgFirebaseSession";
-const DEVICE_DEFAULTS = { deviceName: "", deviceRoom: "Sin asignar" };
 
 function normalizeDomain(value) {
   let domain = String(value || "").trim().toLowerCase();
