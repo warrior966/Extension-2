@@ -3,12 +3,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function role() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : '';
     }
     function isAdmin() { return signedIn() && role() == 'admin'; }
     function canOperate() { return signedIn() && role() in ['admin', 'operator']; }
+    function isAnonymousDeviceClient() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+    function isOwnDevice(id) {
+      return isAnonymousDeviceClient() && request.auth.uid == id;
+    }
     function validDevice() {
-      return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','updatedBy'])
+      return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','updatedBy'])
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
         && request.resource.data.room is string && request.resource.data.room.size() > 0 && request.resource.data.room.size() <= 80
         && request.resource.data.owner is string && request.resource.data.owner.size() <= 80
@@ -16,14 +24,23 @@ service cloud.firestore {
         && request.resource.data.status in ['Activo','Mantenimiento','Retirado']
         && request.resource.data.updatedBy == request.auth.uid;
     }
+    function validChromeDevice() {
+      return validDevice()
+        && request.resource.data.platform == 'ChromeOS'
+        && request.resource.data.status == 'Activo'
+        && request.resource.data.lastSeen is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.owner == 'Perfil Chrome compartido';
+    }
+
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
       // Los roles se asignan desde un entorno de confianza, nunca desde el cliente web.
       allow create, update, delete: if false;
     }
     match /devices/{id} {
-      allow read: if signedIn() && role() in ['admin','operator','viewer'];
-      allow create, update: if canOperate() && validDevice();
+      allow read: if signedIn() && (role() in ['admin','operator','viewer'] || isOwnDevice(id));
+      allow create, update: if (canOperate() && validDevice()) || (isOwnDevice(id) && validChromeDevice());
       allow delete: if isAdmin();
     }
     match /policies/{id} {
