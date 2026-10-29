@@ -55,6 +55,18 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if isAdmin();
     }
+    match /settings/{settingId} {
+      // La extensión anónima solo puede leer la política global; solo operadores/admin pueden cambiarla.
+      allow read: if settingId == 'globalPolicy' && signedIn()
+        && (isAnonymousDeviceClient() || role() in ['admin','operator','viewer']);
+      allow create, update: if settingId == 'globalPolicy' && canOperate()
+        && request.resource.data.keys().hasOnly(['mode','whitelist','updatedAt','updatedBy'])
+        && request.resource.data.mode in ['free','block_all','whitelist']
+        && request.resource.data.whitelist is list
+        && request.resource.data.whitelist.size() <= 50
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if settingId == 'globalPolicy' && isAdmin();
+    }
     match /audit/{id} {
       allow read: if signedIn() && role() in ['admin','operator'];
       allow create: if canOperate()
