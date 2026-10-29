@@ -19,21 +19,33 @@ function normalizeDomain(value) {
   return domain;
 }
 async function getSettings() {
-  return chrome.storage.local.get({ domains: [], enabled: false, deviceName: "", deviceRoom: "Sin asignar", syncStatus: "", syncError: "", lastSyncAt: "" });
+  return chrome.storage.local.get({ domains: [], enabled: false, remotePolicy: null, deviceName: "", deviceRoom: "Sin asignar", syncStatus: "", syncError: "", lastSyncAt: "" });
 }
 async function render() {
-  const { domains, enabled } = await getSettings();
-  enabledInput.checked = enabled;
-  statusTitle.textContent = enabled ? "Bloqueo activado" : "Bloqueo desactivado";
-  statusDescription.textContent = enabled ? "Los dominios de la lista están bloqueados." : "Los sitios de la lista están permitidos.";
+  const { domains, enabled, remotePolicy } = await getSettings();
+  const managed = ["free", "block_all", "whitelist"].includes(remotePolicy?.mode);
+  enabledInput.checked = managed ? remotePolicy.mode !== "free" : enabled;
+  enabledInput.disabled = managed;
+  statusTitle.textContent = managed
+    ? ({free:"Política: libertad total", block_all:"Política: bloqueo total", whitelist:"Política: lista blanca"})[remotePolicy.mode]
+    : (enabled ? "Bloqueo activado" : "Bloqueo desactivado");
+  statusDescription.textContent = managed
+    ? (remotePolicy.mode === "free" ? "El administrador permite todas las webs." : remotePolicy.mode === "block_all" ? "El administrador bloquea todas las webs." : "Solo se permiten los dominios de la lista blanca administrada.")
+    : (enabled ? "Los dominios de la lista están bloqueados." : "Los sitios de la lista están permitidos.");
+  form.querySelector('button[type="submit"]').disabled = managed;
+  domainInput.disabled = managed;
   list.replaceChildren();
-  empty.hidden = domains.length > 0;
-  for (const domain of domains) {
+  const displayedDomains = managed ? (remotePolicy.mode === "whitelist" ? remotePolicy.whitelist || [] : []) : domains;
+  empty.hidden = displayedDomains.length > 0;
+  empty.textContent = managed
+    ? (remotePolicy.mode === "whitelist" ? "No hay dominios en la lista blanca." : "La navegación está controlada por la política del administrador.")
+    : "Todavía no has añadido sitios.";
+  for (const domain of displayedDomains) {
     const item = document.createElement("li");
     const label = document.createElement("span");
     label.textContent = domain;
     const remove = document.createElement("button");
-    remove.type = "button"; remove.textContent = "Quitar";
+    remove.type = "button"; remove.textContent = "Quitar"; remove.disabled = managed;
     remove.setAttribute("aria-label", `Quitar ${domain}`);
     remove.addEventListener("click", async () => {
       const latest = await getSettings();
@@ -56,13 +68,16 @@ function renderSyncStatus(settings) {
   }
 }
 enabledInput.addEventListener("change", async () => {
+  const { remotePolicy } = await getSettings();
+  if (["free", "block_all", "whitelist"].includes(remotePolicy?.mode)) { await render(); return; }
   await chrome.storage.local.set({ enabled: enabledInput.checked }); await render();
 });
 form.addEventListener("submit", async event => {
   event.preventDefault();
   const domain = normalizeDomain(domainInput.value);
   if (!domain) { message.textContent = "Introduce un dominio válido, como example.com."; return; }
-  const { domains } = await getSettings();
+  const { domains, remotePolicy } = await getSettings();
+  if (["free", "block_all", "whitelist"].includes(remotePolicy?.mode)) { message.textContent = "La navegación está gestionada desde el panel de administración."; return; }
   if (domains.includes(domain)) { message.textContent = "Ese dominio ya está en la lista."; return; }
   if (domains.length >= 50) { message.textContent = "Has alcanzado el límite de 50 dominios."; return; }
   await chrome.storage.local.set({ domains: [...domains, domain] });
