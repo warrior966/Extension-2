@@ -1,28 +1,34 @@
 # Focus Guard
 
-Herramientas iniciales para productividad y administración educativa.
+Extensión Chrome MV3 para bloqueo local de dominios y registro de perfiles de ChromeOS compartidos, con un panel web conectado a Firebase.
 
 ## Componentes
 
-- **Extensión Chrome**: bloqueo local de dominios elegidos por el usuario.
-- **Panel web** (`admin/`): inicio de sesión con Firebase Authentication; inventario, perfiles documentales y auditoría compartidos mediante Cloud Firestore.
-- **Reglas Firestore** (`firestore.rules`): autorización por rol (`admin`, `operator`, `viewer`). Configuración de despliegue en `firebase.json`.
-- **API anterior** (`server/`): backend Node.js/SQLite independiente, conservado como prototipo y no usado por el panel Firebase.
+- **Extensión Chrome**: bloqueo local de hasta 50 dominios, configuración por perfil y sincronización del registro de dispositivo con Firebase.
+- **Panel web** (`admin/`): Firebase Authentication, inventario, perfiles documentales y auditoría.
+- **Firestore Rules** (`firestore.rules`): roles administrativos y escritura restringida para cada instalación anónima.
+- **API anterior** (`server/`): backend Node.js/SQLite independiente conservado como prototipo.
 
-## Configurar el panel Firebase
+## Configuración
 
-Consulta [admin/README.md](admin/README.md) para activar Email/Password, publicar las reglas, crear la primera cuenta y asignar su rol en la colección `users`.
+Consulta [admin/README.md](admin/README.md) para activar Email/Password y Anonymous Authentication, publicar las reglas, crear el primer administrador e instalar la extensión.
 
-Panel: [admin/index.html](admin/index.html)
+## Instalación manual en Chromebook
 
-## Límites importantes
+1. Descarga el ZIP del repositorio y descomprímelo.
+2. Abre `chrome://extensions`, activa Modo de desarrollador y pulsa **Cargar descomprimida**.
+3. Selecciona la carpeta que contiene `manifest.json`.
+4. Abre Focus Guard, asigna un nombre de perfil y aula/grupo, y pulsa **Guardar y sincronizar**.
 
-La integración Firebase sincroniza registros de inventario y perfiles; **no detecta ni administra los PC Windows reales**. Los perfiles no se despliegan automáticamente. No hay agente Windows, estado de conectividad ni ejecución remota de comandos. Esta versión no se ha probado en el proyecto Firebase ni está lista para producción: valida las reglas con cada rol y revisa privacidad, retención de auditoría y recuperación de cuentas antes de usar datos reales.
+## Identidad y seguridad
 
-## Instalar la extensión
+Cada perfil de Chrome usa Firebase Anonymous Authentication y solo puede escribir su propio documento `devices/{UID}`; no puede leer el inventario global, las políticas ni la auditoría. Los perfiles separados del mismo Chromebook se registran por separado. Si varias personas usan el mismo perfil de Chrome, compartirán el registro y la configuración local.
 
-1. Descarga/clona este repositorio.
-2. Abre `chrome://extensions` en Chrome.
-3. Activa **Modo de desarrollador**.
-4. Pulsa **Cargar descomprimida** y selecciona la carpeta del proyecto.
-5. Abre el popup de Focus Guard, añade dominios y activa el bloqueo.
+La clave Firebase web es identificador público de cliente, no una credencial de administrador. No pongas claves de service account ni Admin SDK en la extensión. La protección efectiva depende de Authentication y las reglas Firestore.
+
+## Límites y estado
+
+- La señal de última comunicación se actualiza aproximadamente cada cinco minutos si Chrome ejecuta el service worker y hay conexión.
+- El bloqueo actúa en el navegador; la extensión no puede impedir su propia desinstalación ni controlar el sistema operativo.
+- Los perfiles de políticas del panel aún no se distribuyen automáticamente a la extensión.
+- La integración no se ha probado contra el proyecto Firebase real y las reglas no se han publicado desde este repositorio. Antes de usar datos reales, habilita Anonymous Authentication, publica reglas y prueba con cuentas de los distintos roles.
