@@ -25,7 +25,7 @@ Panel web que usa Firebase Authentication para iniciar sesión y Cloud Firestore
 2. Abre `chrome://extensions` en el Chromebook y activa **Modo de desarrollador**.
 3. Pulsa **Cargar descomprimida** y selecciona la carpeta del proyecto que contiene `manifest.json`.
 4. Abre Focus Guard y define un nombre de perfil y aula/grupo. Pulsa **Guardar y sincronizar**.
-5. Comprueba en el panel que aparece un dispositivo con plataforma `ChromeOS`. La extensión envía una señal de última comunicación aproximadamente cada cinco minutos mientras el navegador permite ejecutar el service worker.
+5. Comprueba en el panel que aparece un dispositivo con plataforma `ChromeOS` y estado **Pendiente**. Un administrador u operador debe revisar el nombre/aula y cambiar su estado a **Activo** para aprobarlo. La extensión envía una señal de última comunicación aproximadamente cada cinco minutos mientras el navegador permite ejecutar el service worker. La extensión conserva el estado que establezca el panel y no puede autoaprobarse.
 
 ## Identidad y privacidad en Chromebooks compartidos
 
