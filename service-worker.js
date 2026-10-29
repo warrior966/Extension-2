@@ -19,13 +19,13 @@ async function applyRules() {
   let rules = [];
   if (remotePolicy?.mode === "block_all") {
     rules = [{
-      id: FIRST_RULE_ID, priority: 1, action: { type: "block" },
+      id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
       condition: { urlFilter: "|http", resourceTypes: ["main_frame"] }
     }];
   } else if (remotePolicy?.mode === "whitelist") {
     const allowed = [...new Set((remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS);
     rules = [{
-      id: FIRST_RULE_ID, priority: 1, action: { type: "block" },
+      id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
       condition: { urlFilter: "|http", resourceTypes: ["main_frame"] }
     }, ...allowed.map((domain, index) => ({
       id: 2000 + index, priority: 2, action: { type: "allow" },
@@ -33,7 +33,7 @@ async function applyRules() {
     }))];
   } else if (!remotePolicy && enabled) {
     rules = [...new Set(domains.map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS).map((domain, index) => ({
-      id: FIRST_RULE_ID + index, priority: 1, action: { type: "block" },
+      id: FIRST_RULE_ID + index, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
       condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame"] }
     }));
   }
@@ -99,18 +99,22 @@ async function syncDevice(overrides = {}) {
   const now = new Date().toISOString();
   const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
   let deviceStatus = "Pendiente";
+  let assignedRoom = "";
   try {
     const existing = await requestJson(documentUrl, {
       headers: { "Authorization": `Bearer ${session.idToken}` }
     });
     deviceStatus = existing?.fields?.status?.stringValue || "Pendiente";
+    assignedRoom = existing?.fields?.room?.stringValue || "";
   } catch (error) {
     if (!/NOT_FOUND|not found/i.test(String(error.message))) throw error;
   }
 
+  const effectiveRoom = assignedRoom && assignedRoom !== "Sin asignar" && !overrides.room ? assignedRoom : room;
+  await chrome.storage.local.set({ deviceRoom: effectiveRoom });
   const fields = {
     name: { stringValue: name },
-    room: { stringValue: room },
+    room: { stringValue: effectiveRoom },
     owner: { stringValue: "Perfil Chrome compartido" },
     platform: { stringValue: "ChromeOS" },
     status: { stringValue: deviceStatus },
@@ -125,50 +129,70 @@ async function syncDevice(overrides = {}) {
     headers: { "Authorization": `Bearer ${session.idToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ fields })
   });
-  return { uid: session.uid, name, room, lastSeen: now };
+  return { uid: session.uid, name, room: effectiveRoom, lastSeen: now };
 }
 
-async function syncRemotePolicy() {
+async function syncRemotePolicy(deviceRoom = "") {
   const session = await getFirebaseSession();
-  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/globalPolicy`;
+  const headers = { "Authorization": `Bearer ${session.idToken}` };
+  let selectedPolicy = null;
   try {
-    const document = await requestJson(url, { headers: { "Authorization": `Bearer ${session.idToken}` } });
-    const fields = document.fields || {};
-    const mode = fields.mode?.stringValue;
-    if (!["free", "block_all", "whitelist"].includes(mode)) return;
-    const whitelist = (fields.whitelist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
-    await chrome.storage.local.set({ remotePolicy: { mode, whitelist } });
-    await applyRules();
+    const groupsUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/groupPolicies`;
+    const groupDoc = await requestJson(groupsUrl, { headers });
+    const groupValues = groupDoc.fields?.groups?.arrayValue?.values || [];
+    const groups = groupValues.map(item => {
+      const f = item.mapValue?.fields || {};
+      return {
+        name: f.name?.stringValue || "",
+        mode: f.mode?.stringValue || "",
+        whitelist: (f.whitelist?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean)
+      };
+    });
+    const match = groups.find(g => g.name.trim().toLocaleLowerCase() === String(deviceRoom).trim().toLocaleLowerCase());
+    if (match && ["free","block_all","whitelist"].includes(match.mode)) selectedPolicy = { mode: match.mode, whitelist: match.whitelist.slice(0, MAX_DOMAINS), source: "group", group: match.name };
   } catch (error) {
-    if (/NOT_FOUND|not found/i.test(String(error.message))) {
-      await chrome.storage.local.remove("remotePolicy");
-      await applyRules();
+    if (!/NOT_FOUND|not found/i.test(String(error.message))) console.warn("Focus Guard could not sync group policies:", error.message);
+  }
+  if (!selectedPolicy) {
+    const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/globalPolicy`;
+    try {
+      const document = await requestJson(url, { headers });
+      const fields = document.fields || {};
+      const mode = fields.mode?.stringValue;
+      if (["free", "block_all", "whitelist"].includes(mode)) {
+        const whitelist = (fields.whitelist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+        selectedPolicy = { mode, whitelist, source: "global" };
+      }
+    } catch (error) {
+      if (/NOT_FOUND|not found/i.test(String(error.message))) {
+        await chrome.storage.local.remove("remotePolicy");
+        await applyRules();
+        return;
+      }
+      console.warn("Focus Guard could not sync the global navigation policy:", error.message);
       return;
     }
-    // A missing Firestore rule must not stop the device heartbeat or erase its last known policy.
-    console.warn("Focus Guard could not sync the remote navigation policy:", error.message);
+  }
+  if (selectedPolicy) {
+    await chrome.storage.local.set({ remotePolicy: selectedPolicy });
+    await applyRules();
   }
 }
-
 async function reportSync() {
-  // Sync the global navigation policy independently: device registration errors must
-  // not prevent the extension from receiving/applying the administrator's block rules.
+  let device = null;
+  try { device = await syncDevice(); }
+  catch (error) { console.error("Focus Guard Firebase device sync failed:", error); }
   try {
-    await syncRemotePolicy();
-  } catch (error) {
-    console.warn("Focus Guard could not refresh the global navigation policy:", error.message || error);
-  }
-  try {
-    const device = await syncDevice();
+    const saved = await chrome.storage.local.get("deviceRoom");
+    await syncRemotePolicy(device?.room || saved.deviceRoom || "");
+  } catch (error) { console.warn("Focus Guard could not refresh the navigation policy:", error.message || error); }
+  if (device) {
     await chrome.storage.local.set({ syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
     return device;
-  } catch (error) {
-    await chrome.storage.local.set({ syncStatus: "error", syncError: String(error.message || error).slice(0, 240) });
-    console.error("Focus Guard Firebase sync failed:", error);
-    throw error;
   }
+  await chrome.storage.local.set({ syncStatus: "error", syncError: "No se pudo sincronizar el dispositivo; se ha intentado actualizar la política." });
+  return null;
 }
-
 chrome.runtime.onInstalled.addListener(() => {
   applyRules().catch(console.error);
   chrome.alarms.create("fg-heartbeat", { periodInMinutes: 5 });
