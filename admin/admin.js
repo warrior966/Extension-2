@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
-let user = null, role = "viewer", devices = [], policies = [], audit = [], navigationPolicy = { mode: "free", whitelist: [] };
+let user = null, role = "viewer", devices = [], policies = [], audit = [], navigationPolicy = { mode: "free", whitelist: [] }, navigationPolicyError = false;
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canOperate = () => role === "admin" || role === "operator";
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
@@ -57,11 +57,12 @@ async function refresh() {
   const [ds, ps, policySnap] = await Promise.all([
     getDocs(query(collection(db, "devices"), orderBy("name"))),
     getDocs(query(collection(db, "policies"), orderBy("name"))),
-    getDoc(doc(db, "settings", "globalPolicy"))
+    getDoc(doc(db, "settings", "globalPolicy")).catch(err => { console.warn("No se pudo leer la política global; comprueba las reglas de Firestore.", err); return null; })
   ]);
   devices = ds.docs.map(d => ({id:d.id,...d.data()}));
   policies = ps.docs.map(d => ({id:d.id,...d.data()}));
-  if (policySnap.exists()) {
+  navigationPolicyError = !policySnap;
+  if (policySnap?.exists()) {
     const data = policySnap.data();
     navigationPolicy = {
       mode: ["free", "block_all", "whitelist"].includes(data.mode) ? data.mode : "free",
@@ -78,9 +79,11 @@ function renderNavigationPolicy() {
   list.value = navigationPolicy.whitelist.join("\n");
   const canEdit = canOperate();
   mode.disabled = !canEdit; list.disabled = !canEdit; save.hidden = !canEdit;
-  $("navigationPolicyStatus").textContent = !canEdit
-    ? "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". Tu rol es de solo lectura."
-    : "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". La política se sincroniza con las extensiones cuando se conectan.";
+  $("navigationPolicyStatus").textContent = navigationPolicyError
+    ? "No se pudo leer settings/globalPolicy. Publica las reglas actualizadas de firestore.rules antes de guardar o sincronizar la política."
+    : (!canEdit
+      ? "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". Tu rol es de solo lectura."
+      : "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". La política se sincroniza con las extensiones cuando se conectan.");
 }
 function navigationModeLabel(mode) {
   return ({free:"Libertad total",block_all:"Bloqueo total",whitelist:"Lista blanca"})[mode] || "Libertad total";
