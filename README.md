@@ -4,7 +4,7 @@ Extensión Chrome MV3 para bloqueo local de dominios y registro de perfiles de C
 
 ## Componentes
 
-- **Extensión Chrome**: bloqueo local de hasta 50 dominios, configuración por perfil y sincronización del registro de dispositivo con Firebase.
+- **Extensión Chrome**: bloqueo local de hasta 50 dominios, configuración por perfil y sincronización del registro de dispositivo con Firebase. También aplica la política de navegación global configurada desde el panel.
 - **Panel web** (`admin/`): Firebase Authentication, inventario, perfiles documentales y auditoría.
 - **Firestore Rules** (`firestore.rules`): roles administrativos y escritura restringida para cada instalación anónima.
 - **API anterior** (`server/`): backend Node.js/SQLite independiente conservado como prototipo.
@@ -30,5 +30,5 @@ La clave Firebase web es identificador público de cliente, no una credencial de
 
 - La señal de última comunicación se actualiza aproximadamente cada cinco minutos si Chrome ejecuta el service worker y hay conexión.
 - El bloqueo actúa en el navegador; la extensión no puede impedir su propia desinstalación ni controlar el sistema operativo.
-- Los perfiles de políticas del panel aún no se distribuyen automáticamente a la extensión.
+- La política global de navegación del panel se sincroniza con las extensiones cuando se conectan; los perfiles documentales de políticas aún no se distribuyen automáticamente.
 - La integración no se ha probado contra el proyecto Firebase real y las reglas no se han publicado desde este repositorio. Antes de usar datos reales, habilita Anonymous Authentication, publica reglas y prueba con cuentas de los distintos roles.
