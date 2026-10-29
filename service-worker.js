@@ -84,18 +84,29 @@ async function syncDevice(overrides = {}) {
   await chrome.storage.local.set({ deviceName: name, deviceRoom: room });
 
   const now = new Date().toISOString();
+  const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
+  let deviceStatus = "Pendiente";
+  try {
+    const existing = await requestJson(documentUrl, {
+      headers: { "Authorization": `Bearer ${session.idToken}` }
+    });
+    deviceStatus = existing?.fields?.status?.stringValue || "Pendiente";
+  } catch (error) {
+    if (!String(error.message).includes("NOT_FOUND")) throw error;
+  }
+
   const fields = {
     name: { stringValue: name },
     room: { stringValue: room },
     owner: { stringValue: "Perfil Chrome compartido" },
     platform: { stringValue: "ChromeOS" },
-    status: { stringValue: "Activo" },
+    status: { stringValue: deviceStatus },
     updatedAt: { timestampValue: now },
     lastSeen: { timestampValue: now },
     updatedBy: { stringValue: session.uid }
   };
   const mask = Object.keys(fields).map(key => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join("&");
-  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}?${mask}`;
+  const url = `${documentUrl}?${mask}`;
   await requestJson(url, {
     method: "PATCH",
     headers: { "Authorization": `Bearer ${session.idToken}`, "Content-Type": "application/json" },
