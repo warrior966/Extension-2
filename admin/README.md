@@ -8,7 +8,7 @@ Panel web que usa Firebase Authentication para iniciar sesión y Cloud Firestore
 2. En **Authentication → Sign-in method**, habilita **Email/Password** para administradores.
 3. En el mismo apartado, habilita **Anonymous** para que la extensión registre el perfil de Chrome sin pedir una cuenta personal al usuario. Cada perfil de Chrome recibe un UID anónimo independiente.
 4. En **Firestore Database**, crea la base de datos si todavía no existe.
-5. Publica las reglas del archivo raíz `firestore.rules`:
+5. Publica las reglas actualizadas del archivo raíz `firestore.rules` (incluyen acceso de lectura anónimo a `settings/globalPolicy` y escritura solo para admin/operator):
    - Con Firebase CLI instalado y autenticado, desde la raíz del repositorio ejecuta `firebase deploy --only firestore:rules --project fidelazion`.
    - Alternativamente, copia el contenido de `firestore.rules` en **Firestore → Rules** y pulsa **Publish**.
 6. En Authentication, crea una cuenta para el administrador inicial.
@@ -26,6 +26,16 @@ Panel web que usa Firebase Authentication para iniciar sesión y Cloud Firestore
 3. Pulsa **Cargar descomprimida** y selecciona la carpeta del proyecto que contiene `manifest.json`.
 4. Abre Focus Guard y define un nombre de perfil y aula/grupo. Pulsa **Guardar y sincronizar**.
 5. Comprueba en el panel que aparece un dispositivo con plataforma `ChromeOS` y estado **Pendiente**. Un administrador u operador debe revisar el nombre/aula y cambiar su estado a **Activo** para aprobarlo. La extensión envía una señal de última comunicación aproximadamente cada cinco minutos mientras el navegador permite ejecutar el service worker. La extensión conserva el estado que establezca el panel y no puede autoaprobarse.
+
+## Política global de navegación web
+
+En el panel, la sección **Control web** permite seleccionar:
+
+- `Libertad total`: permite navegar por cualquier web.
+- `Bloqueo total`: bloquea la navegación a páginas HTTP/HTTPS.
+- `Lista blanca`: solo permite los dominios incluidos en la lista, hasta 50; se admiten subdominios del dominio indicado.
+
+La política se guarda en `settings/globalPolicy` y se comparte con todas las instalaciones de esta extensión conectadas al mismo proyecto Firebase. Los cambios se sincronizan al instalar/iniciar Chrome y durante la señal de actividad periódica (aproximadamente cada cinco minutos). Antes de utilizarla, publica las reglas actualizadas de `firestore.rules`. Si las reglas no están publicadas, el panel no podrá guardar la política y las extensiones no podrán leerla. La extensión bloquea navegación web HTTP/HTTPS, no páginas internas del navegador ni otros navegadores o aplicaciones.
 
 ## Identidad y privacidad en Chromebooks compartidos
 
@@ -45,6 +55,6 @@ Panel web que usa Firebase Authentication para iniciar sesión y Cloud Firestore
 ## Límites
 
 - La extensión puede bloquear dominios configurados mediante APIs del navegador, pero no puede impedir que un usuario la desinstale ni administrar el sistema operativo completo.
-- Los perfiles de políticas son documentación; todavía no se distribuyen automáticamente como políticas remotas a la extensión.
+- Los perfiles documentales de políticas aún no se distribuyen automáticamente. La política global de navegación de la sección **Control web** sí se sincroniza con la extensión.
 - La sincronización requiere conexión a Internet y que Firebase Authentication anónimo esté habilitado.
 - No se ha probado esta integración contra el proyecto Firebase real ni se han publicado estas reglas desde aquí. Antes de producción, valida los permisos en Firebase Rules Playground/emulador, protege las cuentas de administrador y revisa privacidad y retención.
