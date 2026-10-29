@@ -20,7 +20,7 @@
   <div id="appShell" hidden>
   <aside class="sidebar">
     <div class="brand"><span class="brand-icon">FG</span><span><strong>Focus Guard</strong><small>Administración educativa</small></span></div>
-    <nav aria-label="Navegación principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#devices">▣ <span>Dispositivos</span></a><a class="nav-link" href="#policies">◈ <span>Políticas</span></a><a class="nav-link" href="#navigationPolicy">⛨ <span>Control web</span></a><a class="nav-link" href="#audit">≡ <span>Auditoría</span></a></nav>
+    <nav aria-label="Navegación principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#devices">▣ <span>Dispositivos</span></a><a class="nav-link" href="#policies">◈ <span>Políticas</span></a><a class="nav-link" href="#navigationPolicy">⛨ <span>Control web</span></a><a class="nav-link" href="#groups">▤ <span>Aulas y grupos</span></a><a class="nav-link" href="#audit">≡ <span>Auditoría</span></a></nav>
     <div class="sidebar-note"><span class="status-dot"></span> Firebase conectado <p>Los datos se sincronizan con Cloud Firestore.</p></div>
   </aside>
   <main>
@@ -51,6 +51,18 @@
         <div class="dialog-actions"><button id="saveNavigationPolicyBtn" class="btn primary" type="submit">Guardar y sincronizar política</button></div>
         <p id="navigationPolicyStatus" class="notice" role="status" aria-live="polite">Cargando configuración…</p>
       </form>
+    </section>
+    <section id="groups" class="section panel">
+      <div class="section-heading"><div><h2>Gestión por aulas y grupos</h2><p>Crea políticas específicas para cada aula. Asigna el mismo nombre de aula/grupo en el registro de cada dispositivo.</p></div></div>
+      <form id="groupPolicyForm" class="navigation-policy-form">
+        <label for="groupPolicyName">Nombre exacto del aula o grupo<input id="groupPolicyName" maxlength="80" required placeholder="Ej. 2ESO-A"></label>
+        <label for="groupPolicyMode">Modo de navegación<select id="groupPolicyMode"><option value="free">Libertad total</option><option value="block_all">Bloqueo total</option><option value="whitelist">Lista blanca</option></select></label>
+        <label for="groupPolicyWhitelist">Dominios permitidos en este grupo<textarea id="groupPolicyWhitelist" rows="4" maxlength="6000" placeholder="educacion.gob.es&#10;wikipedia.org"></textarea></label>
+        <p class="hint">Máximo 50 dominios por grupo. El nombre debe coincidir con el campo «Aula / grupo» del dispositivo. Si no existe una política para ese grupo, se aplicará la política global.</p>
+        <div class="dialog-actions"><button id="saveGroupPolicyBtn" class="btn primary" type="submit">Guardar política del grupo</button></div>
+        <p id="groupPolicyStatus" class="notice" role="status" aria-live="polite">Cargando grupos…</p>
+      </form>
+      <div id="groupPolicyList" class="policy-grid"></div>
     </section>
     <section id="audit" class="section panel"><div class="section-heading"><div><h2>Registro de auditoría</h2><p>Acciones recientes registradas en Firestore.</p></div></div><div id="auditList" class="audit-list"></div></section>
     <footer>Focus Guard · Panel conectado a Firebase · Inventario por perfil de Chrome.</footer>
