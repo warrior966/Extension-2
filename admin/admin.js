@@ -89,7 +89,16 @@ onAuthStateChanged(auth, async u => {
     $("roleNotice").hidden = canOperate(); $("roleNotice").textContent = "Tu rol es de solo lectura.";
     $("addDeviceBtn").hidden = !canOperate(); $("addPolicyBtn").hidden = !canOperate();
     await refresh();
-  } catch (err) { fail("Error leyendo Firestore. Revisa que las reglas estén publicadas y existan los documentos necesarios.", err); }
+  } catch (err) {
+    console.error("No se pudo verificar el perfil o cargar el panel:", err);
+    $("loginScreen").hidden = false;
+    $("appShell").hidden = true;
+    const detail = err?.code === "permission-denied"
+      ? "Firebase ha bloqueado la lectura. Comprueba que las reglas de Firestore estén publicadas en el proyecto fidelazion."
+      : "No se pudo leer tu perfil de administrador en Firestore. Comprueba la conexión y las reglas de Firestore.";
+    $("loginError").textContent = detail + (err?.code ? " (" + err.code + ")" : "");
+    await signOut(auth).catch(() => {});
+  }
 });
 $("addDeviceBtn").addEventListener("click", () => openDevice(null));
 $("deviceSearch").addEventListener("input", renderDevices);
