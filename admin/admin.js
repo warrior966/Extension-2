@@ -143,8 +143,7 @@ $("policyList").addEventListener("click", async e => {
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => $(b.dataset.close).close()));
 $("exportBtn").addEventListener("click", () => {
   const cols = ["id","name","room","owner","platform","status"];
-  const csv = [cols.join(","), ...devices.map(d => cols.map(k => '"'+String(d[k] ?? "").replace(/"/g,'""')+'"').join(","))].join("\r
-");
+  const csv = [cols.join(","), ...devices.map(d => cols.map(k => '"'+String(d[k] ?? "").replace(/"/g,'""')+'"').join(","))].join("\r\n");
   const url = URL.createObjectURL(new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"}));
   const a = document.createElement("a"); a.href = url; a.download = "focus-guard-inventario.csv"; a.click(); URL.revokeObjectURL(url);
 });
