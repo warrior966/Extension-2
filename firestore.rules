@@ -21,16 +21,14 @@ service cloud.firestore {
         && request.resource.data.room is string && request.resource.data.room.size() > 0 && request.resource.data.room.size() <= 80
         && request.resource.data.owner is string && request.resource.data.owner.size() <= 80
         && request.resource.data.platform in ['Windows','ChromeOS','macOS','Linux','Otro']
-        && request.resource.data.status in ['Activo','Mantenimiento','Retirado']
+        && request.resource.data.status in ['Pendiente','Activo','Mantenimiento','Retirado']
         && request.resource.data.updatedBy == request.auth.uid;
     }
     function validChromeDevice() {
       return validDevice()
         && request.resource.data.platform == 'ChromeOS'
-        && request.resource.data.status == 'Activo'
         && request.resource.data.lastSeen is timestamp
-        && request.resource.data.updatedAt is timestamp
-        && request.resource.data.owner == 'Perfil Chrome compartido';
+        && request.resource.data.updatedAt is timestamp;
     }
 
     match /users/{uid} {
@@ -40,7 +38,10 @@ service cloud.firestore {
     }
     match /devices/{id} {
       allow read: if signedIn() && (role() in ['admin','operator','viewer'] || isOwnDevice(id));
-      allow create, update: if (canOperate() && validDevice()) || (isOwnDevice(id) && validChromeDevice());
+      allow create: if (canOperate() && validDevice())
+        || (isOwnDevice(id) && validChromeDevice() && request.resource.data.status == 'Pendiente');
+      allow update: if (canOperate() && validDevice())
+        || (isOwnDevice(id) && validChromeDevice() && request.resource.data.status == resource.data.status);
       allow delete: if isAdmin();
     }
     match /policies/{id} {
