@@ -20,7 +20,7 @@
   <div id="appShell" hidden>
   <aside class="sidebar">
     <div class="brand"><span class="brand-icon">FG</span><span><strong>Focus Guard</strong><small>Administración educativa</small></span></div>
-    <nav aria-label="Navegación principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#devices">▣ <span>Dispositivos</span></a><a class="nav-link" href="#policies">◈ <span>Políticas</span></a><a class="nav-link" href="#audit">≡ <span>Auditoría</span></a></nav>
+    <nav aria-label="Navegación principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#devices">▣ <span>Dispositivos</span></a><a class="nav-link" href="#policies">◈ <span>Políticas</span></a><a class="nav-link" href="#navigationPolicy">⛨ <span>Control web</span></a><a class="nav-link" href="#audit">≡ <span>Auditoría</span></a></nav>
     <div class="sidebar-note"><span class="status-dot"></span> Firebase conectado <p>Los datos se sincronizan con Cloud Firestore.</p></div>
   </aside>
   <main>
@@ -34,6 +34,24 @@
       <div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Aula / grupo</th><th>Responsable</th><th>Plataforma</th><th>Última comunicación</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="deviceRows"></tbody></table></div><p id="emptyDevices" class="empty" hidden>No hay equipos que coincidan. Registra uno para comenzar.</p>
     </section>
     <section id="policies" class="section panel"><div class="section-heading"><div><h2>Perfiles de políticas</h2><p>Perfiles documentales asignados por grupo.</p></div><button id="addPolicyBtn" class="btn primary">+ Crear perfil</button></div><div id="policyList" class="policy-grid"></div><p class="notice">Estos perfiles son documentación: aún no se distribuyen automáticamente a las extensiones.</p></section>
+    <section id="navigationPolicy" class="section panel">
+      <div class="section-heading"><div><h2>Control de navegación web</h2><p>Configura la política que Focus Guard sincronizará con las extensiones conectadas.</p></div></div>
+      <form id="navigationPolicyForm" class="navigation-policy-form">
+        <label for="navigationMode">Modo de navegación
+          <select id="navigationMode">
+            <option value="free">Libertad total — permitir todas las webs</option>
+            <option value="block_all">Bloqueo total — bloquear todas las webs</option>
+            <option value="whitelist">Lista blanca — permitir solo los dominios indicados</option>
+          </select>
+        </label>
+        <label for="whitelistDomains">Lista blanca de dominios
+          <textarea id="whitelistDomains" rows="6" maxlength="6000" placeholder="example.com&#10;educacion.gob.es&#10;wikipedia.org"></textarea>
+        </label>
+        <p class="hint">Escribe un dominio por línea, sin rutas. Se permiten hasta 50 dominios. En modo Lista blanca, los demás sitios web se bloquearán.</p>
+        <div class="dialog-actions"><button id="saveNavigationPolicyBtn" class="btn primary" type="submit">Guardar y sincronizar política</button></div>
+        <p id="navigationPolicyStatus" class="notice" role="status" aria-live="polite">Cargando configuración…</p>
+      </form>
+    </section>
     <section id="audit" class="section panel"><div class="section-heading"><div><h2>Registro de auditoría</h2><p>Acciones recientes registradas en Firestore.</p></div></div><div id="auditList" class="audit-list"></div></section>
     <footer>Focus Guard · Panel conectado a Firebase · Inventario por perfil de Chrome.</footer>
   </main>
