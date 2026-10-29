@@ -151,9 +151,15 @@ async function syncRemotePolicy() {
 }
 
 async function reportSync() {
+  // Sync the global navigation policy independently: device registration errors must
+  // not prevent the extension from receiving/applying the administrator's block rules.
+  try {
+    await syncRemotePolicy();
+  } catch (error) {
+    console.warn("Focus Guard could not refresh the global navigation policy:", error.message || error);
+  }
   try {
     const device = await syncDevice();
-    await syncRemotePolicy();
     await chrome.storage.local.set({ syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
     return device;
   } catch (error) {
