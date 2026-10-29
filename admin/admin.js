@@ -21,14 +21,14 @@ function toast(message) { const el = $("toast"); el.textContent = message; el.cl
 function fail(message, err) { console.error(message, err); toast(message); }
 function stats() {
   $("deviceCount").textContent = devices.length;
-  $("activeCount").textContent = devices.filter(d => d.status === "Activo").length;
+  $("activeCount").textContent = devices.filter(d => d.lastSeen?.toDate && (Date.now() - d.lastSeen.toDate().getTime()) < 15 * 60 * 1000).length;
   $("policyCount").textContent = policies.length;
   $("eventCount").textContent = audit.length;
 }
-function renderDevices() {
+function lastSeenLabel(d) {\n  if (!d.lastSeen?.toDate) return "Sin comunicación";\n  return d.lastSeen.toDate().toLocaleString("es-ES");\n}\nfunction renderDevices() {
   const term = $("deviceSearch").value.trim().toLocaleLowerCase("es"), status = $("statusFilter").value;
   const filtered = devices.filter(d => (status === "all" || d.status === status) && [d.name,d.room,d.owner,d.platform,d.id].some(v => String(v || "").toLocaleLowerCase("es").includes(term)));
-  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td><div class="row-actions">${canOperate() ? '<button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${role === "admin" ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
+  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td><div class="row-actions">${canOperate() ? '<button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${role === "admin" ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
   $("emptyDevices").hidden = filtered.length > 0;
   stats();
 }
@@ -61,7 +61,7 @@ async function refresh() {
 function openDevice(d) {
   $("deviceForm").reset(); $("deviceId").value = d?.id || "";
   $("deviceName").value = d?.name || ""; $("deviceRoom").value = d?.room || "";
-  $("deviceOwner").value = d?.owner || ""; $("devicePlatform").value = d?.platform || "Windows";
+  $("deviceOwner").value = d?.owner || ""; $("devicePlatform").value = d?.platform || "ChromeOS";
   $("deviceStatus").value = d?.status || "Activo"; $("deviceDialogTitle").textContent = d ? "Editar equipo" : "Registrar equipo";
   $("deviceDialog").showModal();
 }
