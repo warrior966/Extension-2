@@ -6,7 +6,8 @@
   "permissions": [
     "storage",
     "alarms",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "background": {
     "service_worker": "service-worker.js"
@@ -14,5 +15,9 @@
   "action": {
     "default_title": "Focus Guard",
     "default_popup": "popup.html"
-  }
+  },
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
 }
