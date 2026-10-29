@@ -41,6 +41,39 @@ async function applyRules() {
     removeRuleIds: oldRules.map(rule => rule.id),
     addRules: rules
   });
+  await enforceOpenTabs(remotePolicy, enabled, domains);
+}
+
+function isBlockedByPolicy(url, remotePolicy, enabled, domains) {
+  let parsed;
+  try { parsed = new URL(url); } catch { return false; }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  if (remotePolicy?.mode === "block_all") return true;
+  if (remotePolicy?.mode === "whitelist") {
+    const allowed = (remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean);
+    return !allowed.some(domain => hostname === domain || hostname.endsWith("." + domain));
+  }
+  if (!remotePolicy && enabled) {
+    const blocked = [...new Set((domains || []).map(normalizeDomain).filter(Boolean))];
+    return blocked.some(domain => hostname === domain || hostname.endsWith("." + domain));
+  }
+  return false;
+}
+
+async function enforceOpenTabs(remotePolicy, enabled, domains) {
+  // DNR blocks new navigations, but a tab that was already displaying a page
+  // stays open. Re-check all current tabs whenever a policy is refreshed.
+  const tabs = await chrome.tabs.query({});
+  const blockedPage = chrome.runtime.getURL("blocked.html");
+  await Promise.all(tabs.filter(tab =>
+    tab.id != null &&
+    tab.url &&
+    !tab.url.startsWith(blockedPage) &&
+    isBlockedByPolicy(tab.url, remotePolicy, enabled, domains)
+  ).map(tab => chrome.tabs.update(tab.id, { url: blockedPage }).catch(error => {
+    console.warn("Focus Guard could not redirect an already-open blocked tab:", error.message || error);
+  })));
 }
 
 async function requestJson(url, options = {}) {
@@ -195,12 +228,12 @@ async function reportSync() {
 }
 chrome.runtime.onInstalled.addListener(() => {
   applyRules().catch(console.error);
-  chrome.alarms.create("fg-heartbeat", { periodInMinutes: 5 });
+  chrome.alarms.create("fg-heartbeat", { periodInMinutes: 1 });
   reportSync().catch(() => {});
 });
 chrome.runtime.onStartup.addListener(() => {
   applyRules().catch(console.error);
-  chrome.alarms.create("fg-heartbeat", { periodInMinutes: 5 });
+  chrome.alarms.create("fg-heartbeat", { periodInMinutes: 1 });
   reportSync().catch(() => {});
 });
 chrome.alarms.onAlarm.addListener(alarm => {
