@@ -148,11 +148,11 @@ $("navigationPolicyForm").addEventListener("submit", async e => {
     const payload = { mode, whitelist: normalized, updatedAt: serverTimestamp(), updatedBy: user.uid };
     await setDoc(doc(db, "settings", "globalPolicy"), payload);
     navigationPolicy = { mode, whitelist: normalized };
-    status.textContent = "Política guardada. Las extensiones sincronizarán los cambios en su próxima comunicación.";
+    status.textContent = "Política guardada. Las extensiones conectadas la recogerán automáticamente en un máximo aproximado de 1 minuto; también se cerrará la navegación ya abierta que quede bloqueada.";
     await log("Política de navegación actualizada", navigationModeLabel(mode) + " · " + (mode === "whitelist" ? normalized.length + " dominios permitidos" : "lista guardada"));
     toast("Política de navegación guardada");
     renderNavigationPolicy();
-    status.textContent = "Política guardada: " + navigationModeLabel(mode) + ". Las extensiones sincronizarán los cambios en su próxima comunicación.";
+    status.textContent = "Política guardada: " + navigationModeLabel(mode) + ". Las extensiones conectadas la recogerán automáticamente en un máximo aproximado de 1 minuto.";
   } catch (err) {
     console.error(err);
     status.textContent = err.message || "No se pudo guardar la política. Comprueba las reglas de Firestore.";
