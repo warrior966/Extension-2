@@ -105,7 +105,7 @@ async function syncDevice(overrides = {}) {
     });
     deviceStatus = existing?.fields?.status?.stringValue || "Pendiente";
   } catch (error) {
-    if (!String(error.message).includes("NOT_FOUND")) throw error;
+    if (!/NOT_FOUND|not found/i.test(String(error.message))) throw error;
   }
 
   const fields = {
@@ -140,7 +140,7 @@ async function syncRemotePolicy() {
     await chrome.storage.local.set({ remotePolicy: { mode, whitelist } });
     await applyRules();
   } catch (error) {
-    if (String(error.message).includes("NOT_FOUND")) {
+    if (/NOT_FOUND|not found/i.test(String(error.message))) {
       await chrome.storage.local.remove("remotePolicy");
       await applyRules();
       return;
