@@ -21,7 +21,7 @@ function toast(message) { const el = $("toast"); el.textContent = message; el.cl
 function fail(message, err) { console.error(message, err); toast(message); }
 function stats() {
   $("deviceCount").textContent = devices.length;
-  $("activeCount").textContent = devices.filter(d => d.lastSeen?.toDate && (Date.now() - d.lastSeen.toDate().getTime()) < 15 * 60 * 1000).length;
+  $("activeCount").textContent = devices.filter(d => d.status === "Activo" && d.lastSeen?.toDate && (Date.now() - d.lastSeen.toDate().getTime()) < 15 * 60 * 1000).length;
   $("policyCount").textContent = policies.length;
   $("eventCount").textContent = audit.length;
 }
@@ -111,7 +111,7 @@ $("deviceForm").addEventListener("submit", async e => {
     const oldId = $("deviceId").value, id = oldId || "FG-"+crypto.randomUUID().slice(0,8).toUpperCase();
     const d = {name:$("deviceName").value.trim(),room:$("deviceRoom").value.trim(),owner:$("deviceOwner").value.trim(),platform:$("devicePlatform").value,status:$("deviceStatus").value,updatedAt:serverTimestamp(),updatedBy:user.uid};
     if (!d.name || !d.room) return;
-    await setDoc(doc(db, "devices", id), d);
+    await setDoc(doc(db, "devices", id), d, {merge:true});
     $("deviceDialog").close(); await log(oldId ? "Registro de equipo actualizado" : "Equipo registrado", id+" · "+d.name); await refresh(); toast("Equipo guardado");
   } catch (err) { fail(err.message || "No se pudo guardar el equipo.", err); }
 });
