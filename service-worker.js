@@ -14,16 +14,29 @@ function normalizeDomain(value) {
 }
 
 async function applyRules() {
-  const { domains = [], enabled = false } = await chrome.storage.local.get(["domains", "enabled"]);
+  const { domains = [], enabled = false, remotePolicy = null } = await chrome.storage.local.get(["domains", "enabled", "remotePolicy"]);
   const oldRules = await chrome.declarativeNetRequest.getDynamicRules();
-  const rules = enabled
-    ? [...new Set(domains.map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS).map((domain, index) => ({
-        id: FIRST_RULE_ID + index,
-        priority: 1,
-        action: { type: "block" },
-        condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame"] }
-      }))
-    : [];
+  let rules = [];
+  if (remotePolicy?.mode === "block_all") {
+    rules = [{
+      id: FIRST_RULE_ID, priority: 1, action: { type: "block" },
+      condition: { urlFilter: "|http", resourceTypes: ["main_frame"] }
+    }];
+  } else if (remotePolicy?.mode === "whitelist") {
+    const allowed = [...new Set((remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS);
+    rules = [{
+      id: FIRST_RULE_ID, priority: 1, action: { type: "block" },
+      condition: { urlFilter: "|http", resourceTypes: ["main_frame"] }
+    }, ...allowed.map((domain, index) => ({
+      id: 2000 + index, priority: 2, action: { type: "allow" },
+      condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame"] }
+    }))];
+  } else if (!remotePolicy && enabled) {
+    rules = [...new Set(domains.map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS).map((domain, index) => ({
+      id: FIRST_RULE_ID + index, priority: 1, action: { type: "block" },
+      condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame"] }
+    }));
+  }
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: oldRules.map(rule => rule.id),
     addRules: rules
@@ -115,9 +128,32 @@ async function syncDevice(overrides = {}) {
   return { uid: session.uid, name, room, lastSeen: now };
 }
 
+async function syncRemotePolicy() {
+  const session = await getFirebaseSession();
+  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/globalPolicy`;
+  try {
+    const document = await requestJson(url, { headers: { "Authorization": `Bearer ${session.idToken}` } });
+    const fields = document.fields || {};
+    const mode = fields.mode?.stringValue;
+    if (!["free", "block_all", "whitelist"].includes(mode)) return;
+    const whitelist = (fields.whitelist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+    await chrome.storage.local.set({ remotePolicy: { mode, whitelist } });
+    await applyRules();
+  } catch (error) {
+    if (String(error.message).includes("NOT_FOUND")) {
+      await chrome.storage.local.remove("remotePolicy");
+      await applyRules();
+      return;
+    }
+    // A missing Firestore rule must not stop the device heartbeat or erase its last known policy.
+    console.warn("Focus Guard could not sync the remote navigation policy:", error.message);
+  }
+}
+
 async function reportSync() {
   try {
     const device = await syncDevice();
+    await syncRemotePolicy();
     await chrome.storage.local.set({ syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
     return device;
   } catch (error) {
@@ -141,7 +177,7 @@ chrome.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === "fg-heartbeat") reportSync().catch(() => {});
 });
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && (changes.domains || changes.enabled)) applyRules().catch(console.error);
+  if (area === "local" && (changes.domains || changes.enabled || changes.remotePolicy)) applyRules().catch(console.error);
 });
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "SYNC_DEVICE") return;
