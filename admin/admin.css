@@ -110,3 +110,5 @@ label{font-size:12px;font-weight:750;color:#45516a;display:grid;gap:8px}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .navigation-policy-form{display:grid;gap:15px;max-width:760px}.navigation-policy-form textarea{width:100%;resize:vertical;min-height:130px}.navigation-policy-form .hint{font-size:12px;line-height:1.7;color:#738097;margin:0}.navigation-policy-form .notice{margin:0}.navigation-policy-form .dialog-actions{justify-content:flex-start}
+
+#groupPolicyList{margin-top:20px}.navigation-policy-form input:disabled,.navigation-policy-form select:disabled,.navigation-policy-form textarea:disabled{background:#f5f6f9;color:#7b879b}
