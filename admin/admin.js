@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
-let user = null, role = "viewer", devices = [], policies = [], audit = [];
+let user = null, role = "viewer", devices = [], policies = [], audit = [], navigationPolicy = { mode: "free", whitelist: [] };
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canOperate = () => role === "admin" || role === "operator";
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
@@ -54,13 +54,40 @@ async function log(action, detail) {
   await loadAudit();
 }
 async function refresh() {
-  const [ds, ps] = await Promise.all([
+  const [ds, ps, policySnap] = await Promise.all([
     getDocs(query(collection(db, "devices"), orderBy("name"))),
-    getDocs(query(collection(db, "policies"), orderBy("name")))
+    getDocs(query(collection(db, "policies"), orderBy("name"))),
+    getDoc(doc(db, "settings", "globalPolicy"))
   ]);
   devices = ds.docs.map(d => ({id:d.id,...d.data()}));
   policies = ps.docs.map(d => ({id:d.id,...d.data()}));
+  if (policySnap.exists()) {
+    const data = policySnap.data();
+    navigationPolicy = {
+      mode: ["free", "block_all", "whitelist"].includes(data.mode) ? data.mode : "free",
+      whitelist: Array.isArray(data.whitelist) ? data.whitelist.filter(v => typeof v === "string").slice(0, 50) : []
+    };
+  } else navigationPolicy = { mode: "free", whitelist: [] };
+  renderNavigationPolicy();
   await loadAudit(); renderDevices(); renderPolicies();
+}
+function renderNavigationPolicy() {
+  const mode = $("navigationMode"), list = $("whitelistDomains"), save = $("saveNavigationPolicyBtn");
+  if (!mode || !list || !save) return;
+  mode.value = navigationPolicy.mode;
+  list.value = navigationPolicy.whitelist.join("\n");
+  const canEdit = canOperate();
+  mode.disabled = !canEdit; list.disabled = !canEdit; save.hidden = !canEdit;
+  $("navigationPolicyStatus").textContent = !canEdit
+    ? "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". Tu rol es de solo lectura."
+    : "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". La política se sincroniza con las extensiones cuando se conectan.";
+}
+function navigationModeLabel(mode) {
+  return ({free:"Libertad total",block_all:"Bloqueo total",whitelist:"Lista blanca"})[mode] || "Libertad total";
+}
+function normalizePolicyDomain(value) {
+  let domain = String(value || "").trim().toLowerCase().replace(/^https?:\/\//, "").split(/[/?#]/, 1)[0].replace(/^www\./, "").replace(/\.$/, "");
+  return /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain) ? domain : null;
 }
 function openDevice(d) {
   $("deviceForm").reset(); $("deviceId").value = d?.id || "";
@@ -98,6 +125,30 @@ onAuthStateChanged(auth, async u => {
       : "No se pudo leer tu perfil de administrador en Firestore. Comprueba la conexión y las reglas de Firestore.";
     $("loginError").textContent = detail + (err?.code ? " (" + err.code + ")" : "");
     await signOut(auth).catch(() => {});
+  }
+});
+$("navigationPolicyForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const status = $("navigationPolicyStatus");
+  try {
+    if (!canOperate()) throw new Error("Tu rol no permite cambiar la política de navegación.");
+    const raw = $("whitelistDomains").value.split(/[\r\n,;]+/).map(v => v.trim()).filter(Boolean);
+    const normalized = [...new Set(raw.map(normalizePolicyDomain))];
+    if (normalized.includes(null)) throw new Error("Hay un dominio no válido. Usa un dominio como example.com, sin rutas.");
+    if (normalized.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
+    const mode = $("navigationMode").value;
+    if (mode === "whitelist" && normalized.length === 0) throw new Error("Añade al menos un dominio antes de activar la lista blanca.");
+    const payload = { mode, whitelist: normalized, updatedAt: serverTimestamp(), updatedBy: user.uid };
+    await setDoc(doc(db, "settings", "globalPolicy"), payload);
+    navigationPolicy = { mode, whitelist: normalized };
+    status.textContent = "Política guardada. Las extensiones sincronizarán los cambios en su próxima comunicación.";
+    await log("Política de navegación actualizada", navigationModeLabel(mode) + " · " + (mode === "whitelist" ? normalized.length + " dominios permitidos" : "lista guardada"));
+    toast("Política de navegación guardada");
+    renderNavigationPolicy();
+    status.textContent = "Política guardada: " + navigationModeLabel(mode) + ". Las extensiones sincronizarán los cambios en su próxima comunicación.";
+  } catch (err) {
+    console.error(err);
+    status.textContent = err.message || "No se pudo guardar la política. Comprueba las reglas de Firestore.";
   }
 });
 $("addDeviceBtn").addEventListener("click", () => openDevice(null));
