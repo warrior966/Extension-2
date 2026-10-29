@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
-let user = null, role = "viewer", devices = [], policies = [], audit = [], navigationPolicy = { mode: "free", whitelist: [] }, navigationPolicyError = false;
+let user = null, role = "viewer", devices = [], policies = [], audit = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [] }, navigationPolicyError = false, groupPolicyError = false;
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canOperate = () => role === "admin" || role === "operator";
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
@@ -54,10 +54,11 @@ async function log(action, detail) {
   await loadAudit();
 }
 async function refresh() {
-  const [ds, ps, policySnap] = await Promise.all([
+  const [ds, ps, policySnap, groupSnap] = await Promise.all([
     getDocs(query(collection(db, "devices"), orderBy("name"))),
     getDocs(query(collection(db, "policies"), orderBy("name"))),
-    getDoc(doc(db, "settings", "globalPolicy")).catch(err => { console.warn("No se pudo leer la política global; comprueba las reglas de Firestore.", err); return null; })
+    getDoc(doc(db, "settings", "globalPolicy")).catch(err => { console.warn("No se pudo leer la política global; comprueba las reglas de Firestore.", err); return null; }),
+    getDoc(doc(db, "settings", "groupPolicies")).catch(err => { console.warn("No se pudieron leer las políticas por grupo.", err); return null; })
   ]);
   devices = ds.docs.map(d => ({id:d.id,...d.data()}));
   policies = ps.docs.map(d => ({id:d.id,...d.data()}));
@@ -70,6 +71,9 @@ async function refresh() {
     };
   } else navigationPolicy = { mode: "free", whitelist: [] };
   renderNavigationPolicy();
+  groupPolicyError = !groupSnap;
+  groupPolicies = groupSnap?.exists() && Array.isArray(groupSnap.data().groups) ? groupSnap.data().groups.filter(g => g && typeof g.name === "string" && ["free","block_all","whitelist"].includes(g.mode)).map(g => ({name:g.name, mode:g.mode, whitelist:Array.isArray(g.whitelist) ? g.whitelist.filter(v => typeof v === "string").slice(0,50) : []})) : [];
+  renderGroupPolicies();
   await loadAudit(); renderDevices(); renderPolicies();
 }
 function renderNavigationPolicy() {
@@ -154,6 +158,57 @@ $("navigationPolicyForm").addEventListener("submit", async e => {
     status.textContent = err.message || "No se pudo guardar la política. Comprueba las reglas de Firestore.";
   }
 });
+
+function renderGroupPolicies() {
+  const list = $("groupPolicyList"), status = $("groupPolicyStatus"), form = $("groupPolicyForm");
+  if (!list || !status || !form) return;
+  const canEdit = canOperate();
+  ["groupPolicyName","groupPolicyMode","groupPolicyWhitelist","saveGroupPolicyBtn"].forEach(id => { $(id).disabled = !canEdit; });
+  status.textContent = groupPolicyError
+    ? "No se pudieron leer las políticas de grupo. Publica las reglas actualizadas de firestore.rules en Firebase Console."
+    : (canEdit ? "Las políticas guardadas se aplicarán a los dispositivos cuyo aula/grupo coincida con el nombre." : "Tu rol es de solo lectura.");
+  list.innerHTML = groupPolicies.map(g => `<article class="policy-card"><span class="eyebrow">AULA / GRUPO</span><h3>${esc(g.name)}</h3><div class="group">${esc(navigationModeLabel(g.mode))}</div><p>${g.mode === "whitelist" ? esc(g.whitelist.join(", ")) : (g.mode === "block_all" ? "Bloquea toda navegación HTTP/HTTPS." : "Permite la navegación web.")}</p>${canEdit ? '<button class="mini-btn" data-group-edit="'+esc(g.name)+'">Editar</button> ' : ''}${role === "admin" ? '<button class="mini-btn danger" data-group-delete="'+esc(g.name)+'">Eliminar</button>' : ''}</article>`).join("") || '<p class="empty">Todavía no hay políticas por grupo.</p>';
+}
+async function saveGroupPolicies() {
+  await setDoc(doc(db, "settings", "groupPolicies"), {groups:groupPolicies, updatedAt:serverTimestamp(), updatedBy:user.uid});
+}
+$("groupPolicyForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  try {
+    if (!canOperate()) throw new Error("Tu rol no permite modificar políticas de grupo.");
+    const name = $("groupPolicyName").value.trim();
+    const mode = $("groupPolicyMode").value;
+    const raw = $("groupPolicyWhitelist").value.split(/[\r\n,;]+/).map(v => v.trim()).filter(Boolean);
+    const normalized = [...new Set(raw.map(normalizePolicyDomain))];
+    if (!name) throw new Error("Escribe el nombre del aula o grupo.");
+    if (normalized.includes(null)) throw new Error("Hay un dominio no válido. Usa example.com, sin rutas.");
+    if (normalized.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
+    if (mode === "whitelist" && !normalized.length) throw new Error("Añade al menos un dominio para la lista blanca.");
+    const existing = groupPolicies.findIndex(g => g.name.toLocaleLowerCase("es") === name.toLocaleLowerCase("es"));
+    const group = {name, mode, whitelist:normalized};
+    if (existing >= 0) groupPolicies[existing] = group; else groupPolicies.push(group);
+    await saveGroupPolicies();
+    await log("Política de aula/grupo actualizada", name + " · " + navigationModeLabel(mode));
+    renderGroupPolicies();
+    $("groupPolicyStatus").textContent = "Política del grupo guardada. Los dispositivos la recibirán en su próxima sincronización.";
+    $("groupPolicyForm").reset();
+    toast("Política del grupo guardada");
+  } catch (err) { console.error(err); $("groupPolicyStatus").textContent = err.message || "No se pudo guardar la política del grupo."; }
+});
+$("groupPolicyList").addEventListener("click", async e => {
+  const edit = e.target.closest("[data-group-edit]"), del = e.target.closest("[data-group-delete]");
+  if (edit) {
+    const g = groupPolicies.find(x => x.name === edit.dataset.groupEdit);
+    if (g) { $("groupPolicyName").value = g.name; $("groupPolicyMode").value = g.mode; $("groupPolicyWhitelist").value = g.whitelist.join("\n"); $("groupPolicyForm").scrollIntoView({behavior:"smooth",block:"center"}); }
+  }
+  if (del) {
+    const name = del.dataset.groupDelete;
+    if (role !== "admin" || !confirm("¿Eliminar la política del grupo " + name + "?")) return;
+    try { groupPolicies = groupPolicies.filter(g => g.name !== name); await saveGroupPolicies(); await log("Política de aula/grupo eliminada", name); renderGroupPolicies(); toast("Política de grupo eliminada"); }
+    catch (err) { fail("No se pudo eliminar la política del grupo.", err); }
+  }
+});
+
 $("addDeviceBtn").addEventListener("click", () => openDevice(null));
 $("deviceSearch").addEventListener("input", renderDevices);
 $("statusFilter").addEventListener("change", renderDevices);
