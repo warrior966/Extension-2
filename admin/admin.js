@@ -25,7 +25,11 @@ function stats() {
   $("policyCount").textContent = policies.length;
   $("eventCount").textContent = audit.length;
 }
-function lastSeenLabel(d) {\n  if (!d.lastSeen?.toDate) return "Sin comunicación";\n  return d.lastSeen.toDate().toLocaleString("es-ES");\n}\nfunction renderDevices() {
+function lastSeenLabel(d) {
+  if (!d.lastSeen?.toDate) return "Sin comunicación";
+  return d.lastSeen.toDate().toLocaleString("es-ES");
+}
+function renderDevices() {
   const term = $("deviceSearch").value.trim().toLocaleLowerCase("es"), status = $("statusFilter").value;
   const filtered = devices.filter(d => (status === "all" || d.status === status) && [d.name,d.room,d.owner,d.platform,d.id].some(v => String(v || "").toLocaleLowerCase("es").includes(term)));
   $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td><div class="row-actions">${canOperate() ? '<button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${role === "admin" ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
@@ -130,7 +134,8 @@ $("policyList").addEventListener("click", async e => {
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => $(b.dataset.close).close()));
 $("exportBtn").addEventListener("click", () => {
   const cols = ["id","name","room","owner","platform","status"];
-  const csv = [cols.join(","), ...devices.map(d => cols.map(k => '"'+String(d[k] ?? "").replace(/"/g,'""')+'"').join(","))].join("\r\n");
+  const csv = [cols.join(","), ...devices.map(d => cols.map(k => '"'+String(d[k] ?? "").replace(/"/g,'""')+'"').join(","))].join("\r
+");
   const url = URL.createObjectURL(new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"}));
   const a = document.createElement("a"); a.href = url; a.download = "focus-guard-inventario.csv"; a.click(); URL.revokeObjectURL(url);
 });
