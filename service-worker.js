@@ -214,16 +214,18 @@ async function syncRemotePolicy(deviceRoom = "") {
       if (/NOT_FOUND|not found/i.test(String(error.message))) {
         await chrome.storage.local.remove("remotePolicy");
         await applyRules();
-        return;
+        return true;
       }
       console.warn("Focus Guard could not sync the global navigation policy:", error.message);
-      return;
+      return false;
     }
   }
   if (selectedPolicy) {
     await chrome.storage.local.set({ remotePolicy: selectedPolicy });
     await applyRules();
+    return true;
   }
+  return false;
 }
 async function reportSync() {
   if (navigator.onLine === false) {
@@ -234,11 +236,12 @@ async function reportSync() {
   let device = null;
   try { device = await syncDevice(); }
   catch (error) { console.error("Focus Guard Firebase device sync failed:", error); }
+  let policySynced = false;
   try {
     const saved = await chrome.storage.local.get("deviceRoom");
-    await syncRemotePolicy(device?.room || saved.deviceRoom || "");
+    policySynced = await syncRemotePolicy(device?.room || saved.deviceRoom || "");
   } catch (error) { console.warn("Focus Guard could not refresh the navigation policy:", error.message || error); }
-  if (device) {
+  if (device && policySynced) {
     await chrome.storage.local.set({ offlineLock: false, syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
     await applyRules();
     return device;
