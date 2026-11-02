@@ -14,13 +14,18 @@ function normalizeDomain(value) {
 }
 
 async function applyRules() {
-  const { domains = [], enabled = false, remotePolicy = null } = await chrome.storage.local.get(["domains", "enabled", "remotePolicy"]);
+  const { domains = [], enabled = false, remotePolicy = null, offlineLock = false } = await chrome.storage.local.get(["domains", "enabled", "remotePolicy", "offlineLock"]);
   const oldRules = await chrome.declarativeNetRequest.getDynamicRules();
   let rules = [];
-  if (remotePolicy?.mode === "block_all") {
+  if (offlineLock) {
+    rules = [{
+      id: FIRST_RULE_ID, priority: 100, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
+      condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
+    }];
+  } else if (remotePolicy?.mode === "block_all") {
     rules = [{
       id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
-      condition: { urlFilter: "|http", resourceTypes: ["main_frame"] }
+      condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
     }];
   } else if (remotePolicy?.mode === "whitelist") {
     const allowed = [...new Set((remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS);
@@ -29,12 +34,12 @@ async function applyRules() {
       condition: { urlFilter: "|http", resourceTypes: ["main_frame"] }
     }, ...allowed.map((domain, index) => ({
       id: 2000 + index, priority: 2, action: { type: "allow" },
-      condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame"] }
+      condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame", "sub_frame"] }
     }))];
   } else if (!remotePolicy && enabled) {
     rules = [...new Set(domains.map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS).map((domain, index) => ({
       id: FIRST_RULE_ID + index, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
-      condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame"] }
+      condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame", "sub_frame"] }
     }));
   }
   await chrome.declarativeNetRequest.updateDynamicRules({
@@ -77,7 +82,16 @@ async function enforceOpenTabs(remotePolicy, enabled, domains) {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch (error) {
+    if (error instanceof TypeError || navigator.onLine === false) {
+      await chrome.storage.local.set({ offlineLock: true, syncStatus: "offline", syncError: "Sin conexión: bloqueo total activado." });
+      await applyRules();
+    }
+    throw error;
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = data?.error?.message || data?.error?.errors?.[0]?.message || `HTTP ${response.status}`;
@@ -212,6 +226,11 @@ async function syncRemotePolicy(deviceRoom = "") {
   }
 }
 async function reportSync() {
+  if (navigator.onLine === false) {
+    await chrome.storage.local.set({ offlineLock: true, syncStatus: "offline", syncError: "Sin conexión: bloqueo total activado." });
+    await applyRules();
+    return null;
+  }
   let device = null;
   try { device = await syncDevice(); }
   catch (error) { console.error("Focus Guard Firebase device sync failed:", error); }
@@ -220,10 +239,12 @@ async function reportSync() {
     await syncRemotePolicy(device?.room || saved.deviceRoom || "");
   } catch (error) { console.warn("Focus Guard could not refresh the navigation policy:", error.message || error); }
   if (device) {
-    await chrome.storage.local.set({ syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
+    await chrome.storage.local.set({ offlineLock: false, syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
+    await applyRules();
     return device;
   }
-  await chrome.storage.local.set({ syncStatus: "error", syncError: "No se pudo sincronizar el dispositivo; se ha intentado actualizar la política." });
+  await chrome.storage.local.set({ offlineLock: true, syncStatus: "offline", syncError: "No se pudo conectar con Firebase: bloqueo total activado." });
+  await applyRules();
   return null;
 }
 chrome.runtime.onInstalled.addListener(() => {
