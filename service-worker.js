@@ -61,7 +61,9 @@ function isBlockedByPolicy(url, remotePolicy, enabled, domains) {
   try { parsed = new URL(url); } catch { return false; }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
   const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
-  const blacklist = (remotePolicy?.blacklist || []).map(normalizeDomain).filter(Boolean);\n  if (blacklist.some(domain => hostname === domain || hostname.endsWith("." + domain))) return true;\n  if (remotePolicy?.mode === "block_all") return true;
+  const blacklist = (remotePolicy?.blacklist || []).map(normalizeDomain).filter(Boolean);
+  if (blacklist.some(domain => hostname === domain || hostname.endsWith("." + domain))) return true;
+  if (remotePolicy?.mode === "block_all") return true;
   if (remotePolicy?.mode === "whitelist") {
     const allowed = (remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean);
     return !allowed.some(domain => hostname === domain || hostname.endsWith("." + domain));
@@ -215,7 +217,8 @@ async function syncRemotePolicy(deviceRoom = "") {
       const mode = fields.mode?.stringValue;
       if (["free", "block_all", "whitelist"].includes(mode)) {
         const whitelist = (fields.whitelist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
-        const blacklist = (fields.blacklist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);\n        selectedPolicy = { mode, whitelist, blacklist, source: "global" };
+        const blacklist = (fields.blacklist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+        selectedPolicy = { mode, whitelist, blacklist, source: "global" };
       }
     } catch (error) {
       if (/NOT_FOUND|not found/i.test(String(error.message))) {
