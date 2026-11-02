@@ -227,6 +227,18 @@ async function syncRemotePolicy(deviceRoom = "") {
       return false;
     }
   }
+  if (selectedPolicy?.source === "group") {
+    try {
+      const globalUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/globalPolicy`;
+      const globalDoc = await requestJson(globalUrl, { headers });
+      selectedPolicy.blacklist = (globalDoc.fields?.blacklist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+    } catch (error) {
+      if (!/NOT_FOUND|not found/i.test(String(error.message))) {
+        console.warn("Focus Guard could not sync the global blacklist:", error.message);
+        return false;
+      }
+    }
+  }
   if (selectedPolicy) {
     await chrome.storage.local.set({ remotePolicy: selectedPolicy });
     await applyRules();
