@@ -31,7 +31,7 @@ async function applyRules() {
     const allowed = [...new Set((remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS);
     rules = [{
       id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
-      condition: { urlFilter: "|http", resourceTypes: ["main_frame"] }
+      condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
     }, ...allowed.map((domain, index) => ({
       id: 2000 + index, priority: 2, action: { type: "allow" },
       condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame", "sub_frame"] }
@@ -46,7 +46,7 @@ async function applyRules() {
     removeRuleIds: oldRules.map(rule => rule.id),
     addRules: rules
   });
-  await enforceOpenTabs(remotePolicy, enabled, domains);
+  await enforceOpenTabs(offlineLock ? { mode: "block_all" } : remotePolicy, enabled, domains);
 }
 
 function isBlockedByPolicy(url, remotePolicy, enabled, domains) {
