@@ -60,10 +60,10 @@ service cloud.firestore {
       allow read: if settingId in ['globalPolicy', 'groupPolicies'] && signedIn()
         && (isAnonymousDeviceClient() || role() in ['admin','operator','viewer']);
       allow create, update: if settingId == 'globalPolicy' && canOperate()
-        && request.resource.data.keys().hasOnly(['mode','whitelist','updatedAt','updatedBy'])
+        && request.resource.data.keys().hasOnly(['mode','whitelist','blacklist','updatedAt','updatedBy'])
         && request.resource.data.mode in ['free','block_all','whitelist']
         && request.resource.data.whitelist is list
-        && request.resource.data.whitelist.size() <= 50
+        && request.resource.data.whitelist.size() <= 50\n        && request.resource.data.blacklist is list\n        && request.resource.data.blacklist.size() <= 50
         && request.resource.data.updatedBy == request.auth.uid;
       allow create, update: if settingId == 'groupPolicies' && canOperate()
         && request.resource.data.keys().hasOnly(['groups','updatedAt','updatedBy'])
