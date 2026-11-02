@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
-let user = null, role = "viewer", devices = [], policies = [], audit = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [] }, navigationPolicyError = false, groupPolicyError = false;
+let user = null, role = "viewer", devices = [], policies = [], audit = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false;
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canOperate = () => role === "admin" || role === "operator";
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
@@ -67,9 +67,9 @@ async function refresh() {
     const data = policySnap.data();
     navigationPolicy = {
       mode: ["free", "block_all", "whitelist"].includes(data.mode) ? data.mode : "free",
-      whitelist: Array.isArray(data.whitelist) ? data.whitelist.filter(v => typeof v === "string").slice(0, 50) : []
+      whitelist: Array.isArray(data.whitelist) ? data.whitelist.filter(v => typeof v === "string").slice(0, 50) : [],\n      blacklist: Array.isArray(data.blacklist) ? data.blacklist.filter(v => typeof v === "string").slice(0, 50) : []
     };
-  } else navigationPolicy = { mode: "free", whitelist: [] };
+  } else navigationPolicy = { mode: "free", whitelist: [], blacklist: [] };
   renderNavigationPolicy();
   groupPolicyError = !groupSnap;
   groupPolicies = groupSnap?.exists() && Array.isArray(groupSnap.data().groups) ? groupSnap.data().groups.filter(g => g && typeof g.name === "string" && ["free","block_all","whitelist"].includes(g.mode)).map(g => ({name:g.name, mode:g.mode, whitelist:Array.isArray(g.whitelist) ? g.whitelist.filter(v => typeof v === "string").slice(0,50) : []})) : [];
@@ -82,7 +82,7 @@ function renderNavigationPolicy() {
   mode.value = navigationPolicy.mode;
   list.value = navigationPolicy.whitelist.join("\n");
   const canEdit = canOperate();
-  mode.disabled = !canEdit; list.disabled = !canEdit; save.hidden = !canEdit;
+  mode.disabled = !canEdit; list.disabled = !canEdit; black.disabled = !canEdit; save.hidden = !canEdit;
   $("navigationPolicyStatus").textContent = navigationPolicyError
     ? "No se pudo leer settings/globalPolicy. Publica las reglas actualizadas de firestore.rules antes de guardar o sincronizar la política."
     : (!canEdit
@@ -143,11 +143,11 @@ $("navigationPolicyForm").addEventListener("submit", async e => {
     const normalized = [...new Set(raw.map(normalizePolicyDomain))];
     if (normalized.includes(null)) throw new Error("Hay un dominio no válido. Usa un dominio como example.com, sin rutas.");
     if (normalized.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
-    const mode = $("navigationMode").value;
+    const blackRaw = $("blacklistDomains").value.split(/[\\r\\n,;]+/).map(v => v.trim()).filter(Boolean);\n    const blacklist = [...new Set(blackRaw.map(normalizePolicyDomain))];\n    if (blacklist.includes(null)) throw new Error("Hay un dominio no válido en la lista negra.");\n    if (blacklist.length > 50) throw new Error("La lista negra admite un máximo de 50 dominios.");\n    const mode = $("navigationMode").value;
     if (mode === "whitelist" && normalized.length === 0) throw new Error("Añade al menos un dominio antes de activar la lista blanca.");
-    const payload = { mode, whitelist: normalized, updatedAt: serverTimestamp(), updatedBy: user.uid };
+    const payload = { mode, whitelist: normalized, blacklist, updatedAt: serverTimestamp(), updatedBy: user.uid };
     await setDoc(doc(db, "settings", "globalPolicy"), payload);
-    navigationPolicy = { mode, whitelist: normalized };
+    navigationPolicy = { mode, whitelist: normalized, blacklist };
     status.textContent = "Política guardada. Las extensiones conectadas la recogerán automáticamente en un máximo aproximado de 1 minuto; también se cerrará la navegación ya abierta que quede bloqueada.";
     await log("Política de navegación actualizada", navigationModeLabel(mode) + " · " + (mode === "whitelist" ? normalized.length + " dominios permitidos" : "lista guardada"));
     toast("Política de navegación guardada");
