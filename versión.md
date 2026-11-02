@@ -67,9 +67,21 @@ Actualización que reúne mejoras de aplicación de políticas y nuevas opciones
 - `f85999fddec06358295fc0f44be6713521386088`: corrección de las reglas de Firestore.
 - `03ebda01b16c85d79c3a50a6c5d2db8fc69b7f18`: actualización de versión en `manifest.json` a `2.0.3`.
 
+## Versión 2.0.4
+
+### Mejoras en la pantalla de bloqueo
+- Se ha añadido una sección informativa con los motivos habituales por los que una página puede quedar bloqueada.
+- Se explican la lista negra global, el bloqueo total, la lista permitida, las políticas del aula/grupo y el bloqueo de seguridad por problemas de conexión o sincronización.
+- Se aclara que son causas posibles y que la pantalla no siempre puede determinar cuál ha provocado el bloqueo concreto.
+- Se mantiene la opción para volver a la página anterior.
+
+### Archivos modificados
+- `blocked.html`: diseño y contenido explicativo de los posibles motivos del bloqueo.
+- `manifest.json`: actualización de la versión a `2.0.4`.
+
 ## Estado y notas pendientes
 
-- La versión indicada en el manifiesto es **2.0.3**.
+- La versión indicada en el manifiesto es **2.0.4**.
 - La publicación de las reglas corregidas de Firestore debe confirmarse en Firebase Console; el último paso documentado fue pedir que se volviesen a cargar y publicar.
 - Las funciones nuevas de iframes y bloqueo offline no deben considerarse verificadas en Chromebook hasta realizar una prueba real allí.
 - Las políticas por grupo requieren que el valor de `deviceRoom` coincida exactamente con el nombre del grupo configurado en el panel.
