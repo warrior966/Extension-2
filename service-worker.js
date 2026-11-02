@@ -16,31 +16,38 @@ function normalizeDomain(value) {
 async function applyRules() {
   const { domains = [], enabled = false, remotePolicy = null, offlineLock = false } = await chrome.storage.local.get(["domains", "enabled", "remotePolicy", "offlineLock"]);
   const oldRules = await chrome.declarativeNetRequest.getDynamicRules();
+  const blacklist = [...new Set((remotePolicy?.blacklist || []).map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS);
   let rules = [];
   if (offlineLock) {
     rules = [{
       id: FIRST_RULE_ID, priority: 100, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
       condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
     }];
-  } else if (remotePolicy?.mode === "block_all") {
-    rules = [{
-      id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
-      condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
-    }];
-  } else if (remotePolicy?.mode === "whitelist") {
-    const allowed = [...new Set((remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS);
-    rules = [{
-      id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
-      condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
-    }, ...allowed.map((domain, index) => ({
-      id: 2000 + index, priority: 2, action: { type: "allow" },
-      condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame", "sub_frame"] }
-    }))];
-  } else if (!remotePolicy && enabled) {
-    rules = [...new Set(domains.map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS).map((domain, index) => ({
-      id: FIRST_RULE_ID + index, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
+  } else {
+    rules = blacklist.map((domain, index) => ({
+      id: 3000 + index, priority: 10, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
       condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame", "sub_frame"] }
     }));
+    if (remotePolicy?.mode === "block_all") {
+      rules.push({
+        id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
+        condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
+      });
+    } else if (remotePolicy?.mode === "whitelist") {
+      const allowed = [...new Set((remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS);
+      rules.push({
+        id: FIRST_RULE_ID, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
+        condition: { urlFilter: "|http", resourceTypes: ["main_frame", "sub_frame"] }
+      }, ...allowed.map((domain, index) => ({
+        id: 2000 + index, priority: 2, action: { type: "allow" },
+        condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame", "sub_frame"] }
+      })));
+    } else if (!remotePolicy && enabled) {
+      rules.push(...[...new Set(domains.map(normalizeDomain).filter(Boolean))].slice(0, MAX_DOMAINS).map((domain, index) => ({
+        id: FIRST_RULE_ID + index, priority: 1, action: { type: "redirect", redirect: { extensionPath: "/blocked.html" } },
+        condition: { urlFilter: `||${domain}^`, resourceTypes: ["main_frame", "sub_frame"] }
+      })));
+    }
   }
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: oldRules.map(rule => rule.id),
@@ -54,7 +61,7 @@ function isBlockedByPolicy(url, remotePolicy, enabled, domains) {
   try { parsed = new URL(url); } catch { return false; }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
   const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
-  if (remotePolicy?.mode === "block_all") return true;
+  const blacklist = (remotePolicy?.blacklist || []).map(normalizeDomain).filter(Boolean);\n  if (blacklist.some(domain => hostname === domain || hostname.endsWith("." + domain))) return true;\n  if (remotePolicy?.mode === "block_all") return true;
   if (remotePolicy?.mode === "whitelist") {
     const allowed = (remotePolicy.whitelist || []).map(normalizeDomain).filter(Boolean);
     return !allowed.some(domain => hostname === domain || hostname.endsWith("." + domain));
@@ -208,7 +215,7 @@ async function syncRemotePolicy(deviceRoom = "") {
       const mode = fields.mode?.stringValue;
       if (["free", "block_all", "whitelist"].includes(mode)) {
         const whitelist = (fields.whitelist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
-        selectedPolicy = { mode, whitelist, source: "global" };
+        const blacklist = (fields.blacklist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);\n        selectedPolicy = { mode, whitelist, blacklist, source: "global" };
       }
     } catch (error) {
       if (/NOT_FOUND|not found/i.test(String(error.message))) {
