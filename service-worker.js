@@ -148,9 +148,36 @@ async function getFirebaseSession() {
 async function syncDevice(overrides = {}) {
   const saved = await chrome.storage.local.get(["deviceName", "deviceRoom"]);
   const session = await getFirebaseSession();
-  const name = String(overrides.name ?? saved.deviceName ?? "").trim().slice(0, 80) || `Chromebook-${session.uid.slice(0, 6)}`;
-  const room = String(overrides.room ?? saved.deviceRoom ?? "Sin asignar").trim().slice(0, 80) || "Sin asignar";
-  await chrome.storage.local.set({ deviceName: name, deviceRoom: room });
+  const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
+  let existingFields = null;
+  let deviceStatus = "Pendiente";
+  try {
+    const existing = await requestJson(documentUrl, {
+      headers: { "Authorization": `Bearer ${session.idToken}` }
+    });
+    existingFields = existing.fields || {};
+    deviceStatus = existingFields.status?.stringValue || "Pendiente";
+  } catch (error) {
+    if (!/NOT_FOUND|not found/i.test(String(error.message))) throw error;
+  }
+
+  const profileLocked = existingFields?.profileLocked?.booleanValue === true;
+  const isUserSave = Object.prototype.hasOwnProperty.call(overrides, "name") ||
+    Object.prototype.hasOwnProperty.call(overrides, "room");
+  if (profileLocked && isUserSave) {
+    throw new Error("Los datos están bloqueados por el centro. Solicita al administrador que los desbloquee desde el panel.");
+  }
+  const serverName = existingFields?.name?.stringValue || "";
+  const serverRoom = existingFields?.room?.stringValue || "";
+  const name = serverName && !isUserSave
+    ? serverName
+    : (String(overrides.name ?? saved.deviceName ?? "").trim().slice(0, 80) || `Chromebook-${session.uid.slice(0, 6)}`);
+  const room = serverRoom && !isUserSave
+    ? serverRoom
+    : (String(overrides.room ?? saved.deviceRoom ?? "Sin asignar").trim().slice(0, 80) || "Sin asignar");
+  const lockAfterSave = isUserSave && Boolean(String(overrides.name || "").trim()) && Boolean(String(overrides.room || "").trim());
+  const nextProfileLocked = lockAfterSave ? true : profileLocked;
+  await chrome.storage.local.set({ deviceName: name, deviceRoom: room, profileLocked: nextProfileLocked });
 
   const now = new Date().toISOString();
   let currentUrl = "";
@@ -160,31 +187,17 @@ async function syncDevice(overrides = {}) {
   } catch (error) {
     console.warn("Focus Guard could not read the active tab URL:", error.message || error);
   }
-  const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
-  let deviceStatus = "Pendiente";
-  let assignedRoom = "";
-  try {
-    const existing = await requestJson(documentUrl, {
-      headers: { "Authorization": `Bearer ${session.idToken}` }
-    });
-    deviceStatus = existing?.fields?.status?.stringValue || "Pendiente";
-    assignedRoom = existing?.fields?.room?.stringValue || "";
-  } catch (error) {
-    if (!/NOT_FOUND|not found/i.test(String(error.message))) throw error;
-  }
-
-  const effectiveRoom = assignedRoom && assignedRoom !== "Sin asignar" && !overrides.room ? assignedRoom : room;
-  await chrome.storage.local.set({ deviceRoom: effectiveRoom });
   const fields = {
     name: { stringValue: name },
-    room: { stringValue: effectiveRoom },
+    room: { stringValue: room },
     owner: { stringValue: "Perfil Chrome compartido" },
     platform: { stringValue: "ChromeOS" },
     status: { stringValue: deviceStatus },
     updatedAt: { timestampValue: now },
     lastSeen: { timestampValue: now },
     currentUrl: { stringValue: currentUrl },
-    updatedBy: { stringValue: session.uid }
+    updatedBy: { stringValue: session.uid },
+    profileLocked: { booleanValue: nextProfileLocked }
   };
   const mask = Object.keys(fields).map(key => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join("&");
   const url = `${documentUrl}?${mask}`;
@@ -193,7 +206,7 @@ async function syncDevice(overrides = {}) {
     headers: { "Authorization": `Bearer ${session.idToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ fields })
   });
-  return { uid: session.uid, name, room: effectiveRoom, lastSeen: now, currentUrl };
+  return { uid: session.uid, name, room, lastSeen: now, currentUrl, profileLocked: nextProfileLocked };
 }
 
 async function syncRemotePolicy(deviceRoom = "") {
