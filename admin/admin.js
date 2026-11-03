@@ -87,7 +87,8 @@ async function refresh() {
     const data = policySnap.data();
     navigationPolicy = {
       mode: ["free", "block_all", "whitelist"].includes(data.mode) ? data.mode : "free",
-      whitelist: Array.isArray(data.whitelist) ? data.whitelist.filter(v => typeof v === "string").slice(0, 50) : [],\n      blacklist: Array.isArray(data.blacklist) ? data.blacklist.filter(v => typeof v === "string").slice(0, 50) : []
+      whitelist: Array.isArray(data.whitelist) ? data.whitelist.filter(v => typeof v === "string").slice(0, 50) : [],
+      blacklist: Array.isArray(data.blacklist) ? data.blacklist.filter(v => typeof v === "string").slice(0, 50) : []
     };
   } else navigationPolicy = { mode: "free", whitelist: [], blacklist: [] };
   renderNavigationPolicy();
@@ -97,10 +98,11 @@ async function refresh() {
   await loadAudit(); renderDevices(); renderPolicies();
 }
 function renderNavigationPolicy() {
-  const mode = $("navigationMode"), list = $("whitelistDomains"), save = $("saveNavigationPolicyBtn");
+  const mode = $("navigationMode"), list = $("whitelistDomains"), black = $("blacklistDomains"), save = $("saveNavigationPolicyBtn");
   if (!mode || !list || !save) return;
   mode.value = navigationPolicy.mode;
   list.value = navigationPolicy.whitelist.join("\n");
+  black.value = navigationPolicy.blacklist.join("\n");
   const canEdit = canOperate();
   mode.disabled = !canEdit; list.disabled = !canEdit; black.disabled = !canEdit; save.hidden = !canEdit;
   $("navigationPolicyStatus").textContent = navigationPolicyError
@@ -165,7 +167,11 @@ $("navigationPolicyForm").addEventListener("submit", async e => {
     const normalized = [...new Set(raw.map(normalizePolicyDomain))];
     if (normalized.includes(null)) throw new Error("Hay un dominio no válido. Usa un dominio como example.com, sin rutas.");
     if (normalized.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
-    const blackRaw = $("blacklistDomains").value.split(/[\\r\\n,;]+/).map(v => v.trim()).filter(Boolean);\n    const blacklist = [...new Set(blackRaw.map(normalizePolicyDomain))];\n    if (blacklist.includes(null)) throw new Error("Hay un dominio no válido en la lista negra.");\n    if (blacklist.length > 50) throw new Error("La lista negra admite un máximo de 50 dominios.");\n    const mode = $("navigationMode").value;
+    const blackRaw = $("blacklistDomains").value.split(/[\\r\\n,;]+/).map(v => v.trim()).filter(Boolean);
+    const blacklist = [...new Set(blackRaw.map(normalizePolicyDomain))];
+    if (blacklist.includes(null)) throw new Error("Hay un dominio no válido en la lista negra.");
+    if (blacklist.length > 50) throw new Error("La lista negra admite un máximo de 50 dominios.");
+    const mode = $("navigationMode").value;
     if (mode === "whitelist" && normalized.length === 0) throw new Error("Añade al menos un dominio antes de activar la lista blanca.");
     const payload = { mode, whitelist: normalized, blacklist, updatedAt: serverTimestamp(), updatedBy: user.uid };
     await setDoc(doc(db, "settings", "globalPolicy"), payload);
