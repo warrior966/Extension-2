@@ -117,3 +117,14 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 
 **Pendiente de verificación:** publicar las nuevas reglas de `firestore.rules` en Firebase Console, actualizar la extensión a 2.0.5 y comprobar en un Chromebook real que la URL se actualiza en Firestore y aparece en el panel aproximadamente cada minuto. Esta función todavía no se considera probada en dispositivos reales.
 
+## Versión 2.0.6
+
+### Icono de la extensión
+- Se configura el recurso gráfico de Focus Guard como icono general de la extensión y como icono de la acción del navegador, en lugar del icono genérico con inicial.
+- Se utilizan las variantes de tamaño declaradas en el manifiesto y el recurso existente `assets/focus-guard-icon.svg`.
+
+### Archivos modificados
+- `manifest.json`: campos `icons` y `action.default_icon`; versión `2.0.6`.
+
+**Pendiente de verificación:** recargar/actualizar la extensión en Chrome y comprobar el icono de la barra de herramientas. Si Chrome no acepta SVG como icono del manifiesto en el entorno utilizado, habrá que añadir versiones PNG del mismo logo.
+
