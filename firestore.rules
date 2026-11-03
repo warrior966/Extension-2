@@ -23,7 +23,7 @@ service cloud.firestore {
         && request.resource.data.platform in ['Windows','ChromeOS','macOS','Linux','Otro']
         && request.resource.data.status in ['Pendiente','Activo','Mantenimiento','Retirado']
         && request.resource.data.updatedBy == request.auth.uid
-        && request.resource.data.profileLocked is bool;
+        && (!('profileLocked' in request.resource.data) || request.resource.data.profileLocked is bool);
     }
     function validChromeDevice() {
       return validDevice()
