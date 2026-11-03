@@ -122,11 +122,17 @@ async function init() {
   deviceRoomInput.value = settings.deviceRoom;
   renderDeviceLock(settings);
   renderSyncStatus(settings);
-  if (!settings.syncStatus) {
-    try { chrome.runtime.sendMessage({type:"SYNC_DEVICE"}).then(async response => {
-      const latest = await getSettings(); renderSyncStatus(latest);
+  try {
+    chrome.runtime.sendMessage({type:"SYNC_DEVICE"}).then(async response => {
+      const latest = await getSettings();
+      if (response?.ok && response.device) {
+        deviceNameInput.value = response.device.name || latest.deviceName;
+        deviceRoomInput.value = response.device.room || latest.deviceRoom;
+      }
+      renderDeviceLock(latest);
+      renderSyncStatus(latest);
       if (!response?.ok) syncStatus.textContent = "Sincronización pendiente: " + (response?.error || "revisa la configuración de Firebase");
-    }).catch(() => {}); } catch {}
-  }
+    }).catch(() => {});
+  } catch {}
 }
 init().catch(error => { message.textContent = "No se pudo cargar la configuración."; console.error(error); });
