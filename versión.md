@@ -181,3 +181,10 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se rediseñan `assets/focus-guard-logo.svg` y `admin/assets/focus-guard-logo.svg` para incorporar el nuevo escudo azul con candado y libro abierto.
 - Se conserva el nombre Focus Guard y el lema de navegación segura, con una composición horizontal adaptada a los encabezados y espacios de marca.
 - Se incrementa la versión del manifiesto a 2.1.0.
+
+## Versión 2.1.1 — corrección de composición del logotipo
+
+- Se elimina el contenido SVG duplicado que provocaba que el icono apareciese enorme detrás del logotipo horizontal.
+- Se mantiene una única instancia del escudo, correctamente escalada y alineada junto al nombre y el lema.
+- Se corrigen los dos recursos: `assets/focus-guard-logo.svg` y `admin/assets/focus-guard-logo.svg`.
+- Se actualiza el manifiesto a 2.1.1.
