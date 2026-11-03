@@ -137,3 +137,21 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se han aclarado las limitaciones de supervisión de URL, funcionamiento offline y administración de Chrome.
 - No cambia el número de versión de la extensión: sigue siendo `2.0.6`.
 
+
+## Versión 2.0.7
+
+### Bloqueo de los datos iniciales del perfil
+- Después de pulsar **Guardar y sincronizar** con nombre y aula/grupo, la extensión guarda el indicador `profileLocked` en Firestore y bloquea esos campos y el botón de guardado del popup.
+- El bloqueo persiste al cerrar y volver a abrir el popup y se aplica también desde las reglas de Firestore: el cliente anónimo no puede cambiar nombre/aula mientras el perfil siga bloqueado.
+- El panel muestra el estado de los datos del perfil y permite a usuarios con rol `admin` u `operator` bloquearlos o desbloquearlos.
+- Tras desbloquear desde el panel, el popup recupera el permiso en la siguiente sincronización. Al guardar de nuevo, los datos vuelven a quedar bloqueados.
+- Los heartbeats periódicos conservan el bloqueo actual y no vuelven a bloquear automáticamente un perfil que el centro haya desbloqueado.
+
+### Archivos modificados
+- `popup.html` y `popup.js`: aviso y controles bloqueados cuando el perfil está bloqueado.
+- `service-worker.js`: sincronización del indicador de bloqueo y protección de los valores almacenados en Firestore.
+- `admin/index.html` y `admin/admin.js`: estado visible y control de bloqueo/desbloqueo desde el panel.
+- `firestore.rules`: impide al cliente anónimo quitar el bloqueo o cambiar los datos protegidos; permite cambios desde roles autorizados.
+- `manifest.json`: versión `2.0.7`.
+
+**Pendiente de despliegue y prueba:** publicar las nuevas reglas Firestore en Firebase Console y actualizar la extensión. Comprobar el primer registro, el bloqueo al reabrir el popup, el desbloqueo desde el panel, la edición y el nuevo bloqueo después de guardar. No se ha probado en un Chromebook real.
