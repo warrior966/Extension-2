@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
-let user = null, role = "viewer", devices = [], policies = [], audit = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false;
+let user = null, role = "viewer", devices = [], policies = [], audit = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false, deviceRefreshTimer = null;
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canOperate = () => role === "admin" || role === "operator";
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
@@ -25,6 +25,26 @@ function stats() {
   $("policyCount").textContent = policies.length;
   $("eventCount").textContent = audit.length;
 }
+async function refreshDeviceLocations() {
+  try {
+    const snap = await getDocs(query(collection(db, "devices"), orderBy("name")));
+    devices = snap.docs.map(d => ({id:d.id,...d.data()}));
+    renderDevices();
+  } catch (err) { console.warn("No se pudieron actualizar las URL de los dispositivos:", err); }
+}
+function showDeviceUrl(id) {
+  const device = devices.find(d => d.id === id);
+  const value = String(device?.currentUrl || "");
+  const output = $("currentDeviceUrl"), link = $("openCurrentDeviceUrl");
+  let parsed;
+  try { parsed = new URL(value); } catch {}
+  output.textContent = parsed && ["http:", "https:"].includes(parsed.protocol)
+    ? value : "No hay una URL web disponible. El dispositivo puede estar sin una pestaña web activa o aún no haber sincronizado.";
+  if (parsed && ["http:", "https:"].includes(parsed.protocol)) {
+    link.href = value; link.hidden = false;
+  } else { link.removeAttribute("href"); link.hidden = true; }
+  $("urlDialog").showModal();
+}
 function lastSeenLabel(d) {
   if (!d.lastSeen?.toDate) return "Sin comunicación";
   return d.lastSeen.toDate().toLocaleString("es-ES");
@@ -32,7 +52,7 @@ function lastSeenLabel(d) {
 function renderDevices() {
   const term = $("deviceSearch").value.trim().toLocaleLowerCase("es"), status = $("statusFilter").value;
   const filtered = devices.filter(d => (status === "all" || d.status === status) && [d.name,d.room,d.owner,d.platform,d.id].some(v => String(v || "").toLocaleLowerCase("es").includes(term)));
-  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td><div class="row-actions">${canOperate() ? '<button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${role === "admin" ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
+  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td><div class="row-actions"><button class="mini-btn" data-view-url="${esc(d.id)}">Ver URL</button>${canOperate() ? '<button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${role === "admin" ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
   $("emptyDevices").hidden = filtered.length > 0;
   stats();
 }
@@ -111,7 +131,7 @@ $("loginForm").addEventListener("submit", async e => {
 $("logoutBtn").addEventListener("click", () => signOut(auth));
 onAuthStateChanged(auth, async u => {
   user = u;
-  if (!u) { $("loginScreen").hidden = false; $("appShell").hidden = true; return; }
+  if (!u) { if (deviceRefreshTimer) { clearInterval(deviceRefreshTimer); deviceRefreshTimer = null; } $("loginScreen").hidden = false; $("appShell").hidden = true; return; }
   try {
     const profile = await getDoc(doc(db, "users", u.uid));
     const assignedRole = profile.exists() ? profile.data().role : null;
@@ -123,6 +143,8 @@ onAuthStateChanged(auth, async u => {
     $("roleNotice").hidden = canOperate(); $("roleNotice").textContent = "Tu rol es de solo lectura.";
     $("addDeviceBtn").hidden = !canOperate(); $("addPolicyBtn").hidden = !canOperate();
     await refresh();
+    if (deviceRefreshTimer) clearInterval(deviceRefreshTimer);
+    deviceRefreshTimer = setInterval(refreshDeviceLocations, 60_000);
   } catch (err) {
     console.error("No se pudo verificar el perfil o cargar el panel:", err);
     $("loginScreen").hidden = false;
@@ -213,6 +235,8 @@ $("addDeviceBtn").addEventListener("click", () => openDevice(null));
 $("deviceSearch").addEventListener("input", renderDevices);
 $("statusFilter").addEventListener("change", renderDevices);
 $("deviceRows").addEventListener("click", async e => {
+  const viewUrl = e.target.closest("[data-view-url]");
+  if (viewUrl) { showDeviceUrl(viewUrl.dataset.viewUrl); return; }
   const edit = e.target.closest("[data-edit]"), del = e.target.closest("[data-delete]");
   if (edit) { const d = devices.find(x => x.id === edit.dataset.edit); if (d) openDevice(d); }
   if (del) {
