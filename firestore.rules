@@ -16,7 +16,7 @@ service cloud.firestore {
       return isAnonymousDeviceClient() && request.auth.uid == id;
     }
     function validDevice() {
-      return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','updatedBy'])
+      return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','updatedBy'])
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
         && request.resource.data.room is string && request.resource.data.room.size() > 0 && request.resource.data.room.size() <= 80
         && request.resource.data.owner is string && request.resource.data.owner.size() <= 80
@@ -28,6 +28,7 @@ service cloud.firestore {
       return validDevice()
         && request.resource.data.platform == 'ChromeOS'
         && request.resource.data.lastSeen is timestamp
+        && request.resource.data.currentUrl is string && request.resource.data.currentUrl.size() <= 2048
         && request.resource.data.updatedAt is timestamp;
     }
 
