@@ -92,6 +92,11 @@ form.addEventListener("submit", async event => {
   domainInput.value = ""; message.textContent = ""; await render();
 });
 syncButton.addEventListener("click", async () => {
+  if (!deviceNameInput.value.trim() || !deviceRoomInput.value.trim()) {
+    syncStatus.textContent = "Completa el nombre del perfil y el aula/grupo antes de sincronizar.";
+    syncStatus.dataset.state = "error";
+    return;
+  }
   syncButton.disabled = true; syncStatus.textContent = "Sincronizando…";
   try {
     const response = await chrome.runtime.sendMessage({
