@@ -1,52 +1,85 @@
 # Focus Guard
 
-Extensión Chrome MV3 para bloqueo local de dominios y registro de perfiles de ChromeOS compartidos, con un panel web conectado a Firebase.
+Extensión para Chrome basada en Manifest V3 y panel web de administración. Permite aplicar políticas de navegación web globales y por aula/grupo, registrar perfiles de Chrome y consultar su estado desde Firebase.
+
+<text>Versión actual de la extensión: **2.0.6**.</text>
 
 ## Componentes
 
-- **Extensión Chrome**: bloqueo local de hasta 50 dominios, configuración por perfil y sincronización del registro de dispositivo con Firebase. También aplica la política de navegación global configurada desde el panel.
-- **Panel web** (`admin/`): Firebase Authentication, inventario, perfiles documentales y auditoría.
-- **Firestore Rules** (`firestore.rules`): roles administrativos y escritura restringida para cada instalación anónima.
-- **API anterior** (`server/`): backend Node.js/SQLite independiente conservado como prototipo.
+- **Extensión Chrome**: aplica reglas de navegación, sincroniza el perfil del navegador con Firebase y muestra una página de bloqueo personalizada.
+- **Panel web** (`admin/`): autenticación de administradores, inventario de dispositivos, control web, políticas por aula/grupo, auditoría y exportación CSV.
+- **Firestore** (`firestore.rules`): controla qué pueden leer y modificar los perfiles anónimos de la extensión y los usuarios del panel.
+- **API anterior** (`server/`): backend Node.js/SQLite conservado como prototipo independiente.
 
-## Configuración
+## Funciones principales
 
-Consulta [admin/README.md](admin/README.md) para activar Email/Password y Anonymous Authentication, publicar las reglas, crear el primer administrador e instalar la extensión.
+### Control de navegación
+
+La política global se configura en **Control web**:
+
+- **Libertad total** (`free`): permite navegar, salvo los dominios de la lista negra global.
+- **Bloqueo total** (`block_all`): bloquea la navegación web HTTP/HTTPS.
+- **Lista blanca** (`whitelist`): permite únicamente los dominios autorizados y sus subdominios, además de respetar la lista negra global.
+
+La lista negra global se aplica en todos los modos. Se admiten hasta 50 dominios en cada lista. Las reglas cubren navegación principal e iframes/subdocumentos HTTP/HTTPS.
+
+Las políticas por aula/grupo se configuran desde **Aulas y grupos**. El nombre del grupo debe coincidir exactamente con el campo **Aula / grupo** del dispositivo. Si no existe una política para ese grupo, se utiliza la política global.
+
+### Sincronización y dispositivos
+
+- Cada perfil de Chrome se registra mediante Firebase Anonymous Authentication y tiene su propio UID.
+- El panel muestra nombre, aula/grupo, responsable, plataforma, estado y última comunicación.
+- La sincronización y el heartbeat se realizan periódicamente (aproximadamente cada minuto cuando Chrome ejecuta el service worker y hay conexión).
+- El panel incluye **Ver URL** para consultar la URL HTTP/HTTPS de la pestaña activa que el perfil haya comunicado. El panel refresca el inventario aproximadamente cada minuto.
+- Si falla una solicitud de red o la sincronización, puede activarse el bloqueo de seguridad offline hasta que la sincronización se recupere.
+
+### Página de bloqueo
+
+Cuando una regla bloquea una navegación, la extensión muestra `blocked.html`, con información sobre los motivos habituales del bloqueo.
+
+## Configuración de Firebase
+
+Consulta [admin/README.md](admin/README.md) para configurar Authentication, publicar las reglas de Firestore, crear el primer administrador, instalar la extensión y preparar las políticas.
+
+Proyecto Firebase configurado en el cliente: `fidelazion`.
+
+**Importante:** los cambios del archivo `firestore.rules` no se publican automáticamente al subirlos a GitHub. Deben desplegarse en el proyecto Firebase correcto antes de utilizar las funciones correspondientes.
 
 ## Instalación manual en Chromebook
 
 1. Descarga el ZIP del repositorio y descomprímelo.
-2. Abre `chrome://extensions`, activa Modo de desarrollador y pulsa **Cargar descomprimida**.
+2. Abre `chrome://extensions`, activa **Modo de desarrollador** y pulsa **Cargar descomprimida**.
 3. Selecciona la carpeta que contiene `manifest.json`.
 4. Abre Focus Guard, asigna un nombre de perfil y aula/grupo, y pulsa **Guardar y sincronizar**.
+5. En el panel, revisa el nuevo registro y apruébalo/cambia su estado según el procedimiento del centro.
 
-## Identidad y seguridad
+Para entornos educativos administrados, se recomienda distribuir y controlar la extensión mediante Google Admin Console / Chrome Education o Chrome Enterprise.
 
-Cada perfil de Chrome usa Firebase Anonymous Authentication y solo puede escribir su propio documento `devices/{UID}`; no puede leer el inventario global, las políticas ni la auditoría. Los perfiles separados del mismo Chromebook se registran por separado. Si varias personas usan el mismo perfil de Chrome, compartirán el registro y la configuración local.
+## Roles del panel
 
-La clave Firebase web es identificador público de cliente, no una credencial de administrador. No pongas claves de service account ni Admin SDK en la extensión. La protección efectiva depende de Authentication y las reglas Firestore.
+- `admin`: administración completa, incluidos borrado y auditoría.
+- `operator`: consulta y gestión operativa de dispositivos y perfiles, además de auditoría.
+- `viewer`: consulta de dispositivos y perfiles, sin cambios ni acceso a auditoría.
 
-## Límites y estado
+Los roles se asignan en Firestore mediante documentos de `users` cuyo ID coincide con el UID de Authentication.
 
-- La señal de última comunicación se actualiza aproximadamente cada cinco minutos si Chrome ejecuta el service worker y hay conexión.
-- El bloqueo actúa en el navegador; la extensión no puede impedir su propia desinstalación ni controlar el sistema operativo.
-- La política global de navegación del panel se sincroniza con las extensiones cuando se conectan; los perfiles documentales de políticas aún no se distribuyen automáticamente.
-- La integración no se ha probado contra el proyecto Firebase real y las reglas no se han publicado desde este repositorio. Antes de usar datos reales, habilita Anonymous Authentication, publica reglas y prueba con cuentas de los distintos roles.
+## Identidad, privacidad y seguridad
 
+- El registro representa un **perfil de Chrome**, no necesariamente un Chromebook físico único ni una persona.
+- Perfiles de Chrome separados generan registros independientes. Si varias personas utilizan el mismo perfil, comparten su registro y configuración.
+- La extensión usa autenticación anónima y debe limitarse mediante las reglas Firestore a escribir su propio documento `devices/{UID}`.
+- La URL comunicada corresponde únicamente a la pestaña activa de la última ventana enfocada que se haya podido consultar. Puede incluir rutas, términos de búsqueda o parámetros; informa a los usuarios y aplica las normas de privacidad y retención del centro.
+- La clave Firebase web incluida en el cliente identifica el proyecto, pero no sustituye las reglas de seguridad. Nunca incluyas claves de service account ni credenciales Admin SDK en la extensión.
 
-## Nuevas funciones (v1.2.0)
+## Límites y verificaciones
 
-- **Página de bloqueo personalizada:** las reglas de bloqueo global, lista blanca y dominios bloqueados localmente redirigen a `blocked.html`.
-- **Políticas por aulas y grupos:** desde el panel, abre «Aulas y grupos» para crear una política con libertad total, bloqueo total o lista blanca para cada grupo.
-- **Asignación de grupo:** el nombre del grupo debe coincidir exactamente con el campo «Aula / grupo» del registro del dispositivo. Si no hay política para ese grupo, se usa la política global.
-- **Sincronización:** la extensión consulta las políticas de grupo durante el ciclo de sincronización, aproximadamente cada cinco minutos.
+- La extensión controla navegación web HTTP/HTTPS dentro de Chrome; no controla aplicaciones nativas, otros navegadores ni todo el sistema operativo.
+- Una extensión normal no puede impedir por sí sola que el usuario la desinstale ni interceptar páginas internas como `chrome://extensions`. Para instalación forzada y políticas de desinstalación se necesita administración de Chrome.
+- El bloqueo offline depende de las comprobaciones de conectividad y sincronización; no tiene por qué activarse instantáneamente. Un fallo de Firebase puede activar el bloqueo aunque la conexión general a Internet funcione.
+- Las pestañas ya abiertas se vuelven a comprobar cuando se actualizan las reglas. El contenido de un iframe que ya se haya cargado no necesariamente desaparece al instante.
+- No se debe considerar una función verificada en Chromebook hasta probarla en dispositivos reales. Antes de producción, publica y valida las reglas Firestore, prueba todos los roles y políticas y revisa la configuración de privacidad.
 
-### Pasos de actualización
+## Publicación del panel
 
-1. Publica el contenido de `firestore.rules` en Firebase Console → Firestore Database → Rules y pulsa **Publicar**. Este paso es necesario para que el panel y la extensión lean y guarden las políticas por grupo.
-2. Descarga la versión actualizada de la extensión desde GitHub.
-3. Abre `chrome://extensions`, activa el modo desarrollador si hace falta, sustituye los archivos de la extensión y pulsa **Recargar**. Acepta los permisos nuevos si Chrome los solicita.
-4. En el panel de Focus Guard, registra o edita un dispositivo y asigna el aula/grupo. Después, en «Aulas y grupos», crea una política con el mismo nombre.
-5. Prueba primero con un Chromebook de prueba y comprueba que la página personalizada aparece al navegar a una web bloqueada.
+El panel está preparado para publicarse desde la carpeta `admin/` (por ejemplo, en Render como sitio estático, con `admin` como directorio de publicación).
 
-**Limitaciones:** las políticas por grupo dependen de que el dispositivo pueda sincronizarse con Firebase y de que el nombre del aula/grupo coincida. La extensión no sustituye la administración de dispositivos de ChromeOS y no bloquea aplicaciones nativas ni otros navegadores.
