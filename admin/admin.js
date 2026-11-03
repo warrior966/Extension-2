@@ -167,7 +167,7 @@ $("navigationPolicyForm").addEventListener("submit", async e => {
     const normalized = [...new Set(raw.map(normalizePolicyDomain))];
     if (normalized.includes(null)) throw new Error("Hay un dominio no válido. Usa un dominio como example.com, sin rutas.");
     if (normalized.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
-    const blackRaw = $("blacklistDomains").value.split(/[\\r\\n,;]+/).map(v => v.trim()).filter(Boolean);
+    const blackRaw = $("blacklistDomains").value.split(/[\r\n,;]+/).map(v => v.trim()).filter(Boolean);
     const blacklist = [...new Set(blackRaw.map(normalizePolicyDomain))];
     if (blacklist.includes(null)) throw new Error("Hay un dominio no válido en la lista negra.");
     if (blacklist.length > 50) throw new Error("La lista negra admite un máximo de 50 dominios.");
