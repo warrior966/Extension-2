@@ -147,8 +147,10 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Tras desbloquear desde el panel, el popup recupera el permiso en la siguiente sincronización. Al guardar de nuevo, los datos vuelven a quedar bloqueados.
 - Los heartbeats periódicos conservan el bloqueo actual y no vuelven a bloquear automáticamente un perfil que el centro haya desbloqueado.
 
+- El popup exige que el nombre y el aula/grupo estén completos antes de guardar y bloquear el perfil.
+
 ### Archivos modificados
-- `popup.html` y `popup.js`: aviso y controles bloqueados cuando el perfil está bloqueado.
+- `popup.html` y `popup.js`: aviso, validación y controles bloqueados cuando el perfil está bloqueado.
 - `service-worker.js`: sincronización del indicador de bloqueo y protección de los valores almacenados en Firestore.
 - `admin/index.html` y `admin/admin.js`: estado visible y control de bloqueo/desbloqueo desde el panel.
 - `firestore.rules`: impide al cliente anónimo quitar el bloqueo o cambiar los datos protegidos; permite cambios desde roles autorizados.
