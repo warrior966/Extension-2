@@ -1,60 +1,95 @@
 # Focus Guard · Panel de administración
 
-Panel web que usa Firebase Authentication para iniciar sesión y Cloud Firestore para compartir inventario, perfiles documentales y auditoría entre administradores. La extensión Chrome puede registrar un perfil de ChromeOS como dispositivo y actualizar su última comunicación.
+Panel web para gestionar perfiles de Chrome, políticas de navegación y auditoría mediante Firebase Authentication y Cloud Firestore. La extensión Chrome se registra mediante autenticación anónima; el personal del centro accede al panel con cuentas autorizadas.
 
 ## Configuración inicial de Firebase
 
-1. En Firebase Console, abre el proyecto `fidelazion`.
-2. En **Authentication → Sign-in method**, habilita **Email/Password** para administradores.
-3. En el mismo apartado, habilita **Anonymous** para que la extensión registre el perfil de Chrome sin pedir una cuenta personal al usuario. Cada perfil de Chrome recibe un UID anónimo independiente.
-4. En **Firestore Database**, crea la base de datos si todavía no existe.
-5. Publica las reglas actualizadas del archivo raíz `firestore.rules` (incluyen acceso de lectura anónimo a `settings/globalPolicy` y escritura solo para admin/operator):
-   - Con Firebase CLI instalado y autenticado, desde la raíz del repositorio ejecuta `firebase deploy --only firestore:rules --project fidelazion`.
-   - Alternativamente, copia el contenido de `firestore.rules` en **Firestore → Rules** y pulsa **Publish**.
+1. Abre Firebase Console y selecciona el proyecto `fidelazion`.
+2. En **Authentication → Sign-in method**, habilita **Email/Password** para el personal que utilizará el panel.
+3. Habilita también **Anonymous** para que cada perfil de Chrome pueda registrarse sin pedir una cuenta personal al usuario.
+4. Crea o selecciona la base de datos en **Firestore Database**.
+5. Publica las reglas del archivo raíz `firestore.rules`. Desde la raíz del repositorio, con Firebase CLI instalado y autenticado, puedes ejecutar:
+
+   ```bash
+   firebase deploy --only firestore:rules --project fidelazion
+   ```
+
+   Como alternativa, copia el contenido de `firestore.rules` en **Firestore → Rules** y pulsa **Publish**. Publicar el archivo en GitHub no publica las reglas en Firebase.
 6. En Authentication, crea una cuenta para el administrador inicial.
-7. Copia el UID de esa cuenta. En Firestore crea un documento en `users` con el ID exactamente igual al UID y estos datos:
+7. Copia el UID de esa cuenta. En Firestore crea un documento en la colección `users` con el ID exactamente igual al UID y estos datos:
+
    ```json
    { "role": "admin" }
    ```
-   Los roles válidos son `admin`, `operator` y `viewer`. Solo personal de confianza debe asignarlos desde la consola o Admin SDK.
-8. Sirve la carpeta `admin/` mediante HTTP/HTTPS. No abras el archivo con `file://`.
 
-## Instalar y conectar la extensión en cada perfil de ChromeOS
+   Los roles válidos son `admin`, `operator` y `viewer`. Asigna roles únicamente a personal autorizado.
+8. Publica la carpeta `admin/` mediante HTTP/HTTPS. No abras el panel mediante `file://`.
+
+## Instalar y registrar la extensión
 
 1. Descarga el repositorio como ZIP y descomprímelo.
-2. Abre `chrome://extensions` en el Chromebook y activa **Modo de desarrollador**.
+2. En el Chromebook, abre `chrome://extensions` y activa **Modo de desarrollador**.
 3. Pulsa **Cargar descomprimida** y selecciona la carpeta del proyecto que contiene `manifest.json`.
-4. Abre Focus Guard y define un nombre de perfil y aula/grupo. Pulsa **Guardar y sincronizar**.
-5. Comprueba en el panel que aparece un dispositivo con plataforma `ChromeOS` y estado **Pendiente**. Un administrador u operador debe revisar el nombre/aula y cambiar su estado a **Activo** para aprobarlo. La extensión envía una señal de última comunicación aproximadamente cada cinco minutos mientras el navegador permite ejecutar el service worker. La extensión conserva el estado que establezca el panel y no puede autoaprobarse.
+4. Abre Focus Guard, introduce el nombre del perfil y el aula/grupo y pulsa **Guardar y sincronizar**.
+5. En el panel, revisa el registro del dispositivo. El personal con permisos de operación puede editar el registro y cambiar su estado según el procedimiento del centro.
 
-## Política global de navegación web
+La extensión utiliza Firebase Anonymous Authentication. El registro corresponde a un perfil de Chrome: dos perfiles separados pueden aparecer como dispositivos distintos aunque estén en el mismo Chromebook. Las personas que compartan un único perfil compartirán también ese registro.
 
-En el panel, la sección **Control web** permite seleccionar:
+## Inventario y URL actual
 
-- `Libertad total`: permite navegar por cualquier web.
-- `Bloqueo total`: bloquea la navegación a páginas HTTP/HTTPS.
-- `Lista blanca`: solo permite los dominios incluidos en la lista, hasta 50; se admiten subdominios del dominio indicado.
+El inventario muestra nombre, aula/grupo, responsable, plataforma, estado y última comunicación.
 
-La política se guarda en `settings/globalPolicy` y se comparte con todas las instalaciones de esta extensión conectadas al mismo proyecto Firebase. Los cambios se sincronizan al instalar/iniciar Chrome y durante la señal de actividad periódica (aproximadamente cada cinco minutos). Antes de utilizarla, publica las reglas actualizadas de `firestore.rules`. Si las reglas no están publicadas, el panel no podrá guardar la política y las extensiones no podrán leerla. La extensión bloquea navegación web HTTP/HTTPS, no páginas internas del navegador ni otros navegadores o aplicaciones.
+Cada fila dispone del botón **Ver URL**. Muestra la URL HTTP/HTTPS de la pestaña activa comunicada por ese perfil, si existe. La extensión actualiza este dato junto con la sincronización periódica; el panel vuelve a consultar el inventario aproximadamente cada minuto.
 
-## Identidad y privacidad en Chromebooks compartidos
+**Privacidad:** la dirección se guarda completa y puede contener rutas, términos de búsqueda o parámetros. Solo se recoge la pestaña activa de la última ventana enfocada que la extensión haya podido consultar; no es un historial de navegación ni una captura de todas las pestañas. Informa de esta supervisión a los usuarios conforme a las normas del centro y define una política adecuada de acceso y retención.
 
-- El registro identifica un **perfil de Chrome**, no un número de serie ni una identidad física garantizada del Chromebook.
-- Si distintas personas usan perfiles de Chrome separados, cada perfil aparecerá como registro independiente. No se recoge el correo ni el nombre de la cuenta del usuario de ChromeOS.
-- Si varias personas usan exactamente el mismo perfil de Chrome, compartirán ese registro y la configuración local de la extensión.
-- La extensión usa Firebase Anonymous Authentication y solo puede escribir el documento `devices/{UID-anónimo}` asociado a su propio UID. Las reglas impiden que una extensión anónima lea el inventario global, las políticas o la auditoría.
-- La clave Firebase web incluida en el código cliente no es una clave secreta. La seguridad depende de Authentication y de las reglas de Firestore. No incluyas claves de cuenta de servicio ni credenciales Admin SDK en la extensión.
-- Las reglas deben publicarse y probarse en el proyecto correcto antes de usarlo con datos reales.
+## Control web global
+
+En **Control web** puedes seleccionar:
+
+- **Libertad total** (`free`): permite navegar salvo los dominios incluidos en la lista negra global.
+- **Bloqueo total** (`block_all`): bloquea la navegación HTTP/HTTPS.
+- **Lista blanca** (`whitelist`): permite únicamente los dominios autorizados y sus subdominios.
+
+La lista negra global se aplica independientemente del modo seleccionado. Las listas admiten hasta 50 dominios. Las reglas de navegación incluyen páginas principales e iframes/subdocumentos HTTP/HTTPS.
+
+La política se guarda en `settings/globalPolicy` y se sincroniza con las instalaciones conectadas al proyecto Firebase. Para que el panel pueda guardar y las extensiones puedan leerla, deben estar publicadas las reglas Firestore correspondientes.
+
+## Políticas por aula o grupo
+
+En **Aulas y grupos** puedes configurar políticas específicas para cada grupo. El nombre del grupo debe coincidir exactamente con el campo **Aula / grupo** del dispositivo. Cuando no existe una política específica para ese grupo, se aplica la política global.
+
+La lista negra global conserva su alcance general también al utilizar políticas por grupo. La sincronización depende de que el perfil de Chrome pueda comunicarse con Firebase.
+
+## Página de bloqueo y modo sin conexión
+
+La extensión muestra una página de bloqueo personalizada cuando una regla impide la navegación. La página explica motivos habituales, como bloqueo total, lista blanca, lista negra, política del grupo o bloqueo de seguridad por falta de sincronización; esos motivos son orientativos y no siempre identifican la causa concreta.
+
+Si fallan las solicitudes de red o la sincronización, la extensión puede activar un bloqueo offline hasta que consiga sincronizar de nuevo. La detección no es necesariamente instantánea y un fallo de Firebase puede activar el bloqueo aunque Internet siga funcionando. Las pestañas e iframes que ya estaban cargados pueden requerir una nueva navegación para reflejar algunos cambios.
 
 ## Roles del panel
 
-- `admin`: consultar y modificar registros, eliminar equipos/perfiles y leer auditoría.
-- `operator`: consultar y crear/editar equipos y crear perfiles; puede leer auditoría.
-- `viewer`: consultar equipos y perfiles. No puede leer auditoría ni modificar datos.
+- `admin`: acceso completo, incluida la eliminación de registros y la consulta de auditoría.
+- `operator`: puede consultar y gestionar dispositivos/perfiles y consultar auditoría.
+- `viewer`: puede consultar dispositivos y perfiles, pero no modificarlos ni consultar auditoría.
 
-## Límites
+El rol se obtiene del documento `users/{UID}` de Firestore. Las asignaciones deben realizarse desde un entorno de confianza.
 
-- La extensión puede bloquear dominios configurados mediante APIs del navegador, pero no puede impedir que un usuario la desinstale ni administrar el sistema operativo completo.
-- Los perfiles documentales de políticas aún no se distribuyen automáticamente. La política global de navegación de la sección **Control web** sí se sincroniza con la extensión.
-- La sincronización requiere conexión a Internet y que Firebase Authentication anónimo esté habilitado.
-- No se ha probado esta integración contra el proyecto Firebase real ni se han publicado estas reglas desde aquí. Antes de producción, valida los permisos en Firebase Rules Playground/emulador, protege las cuentas de administrador y revisa privacidad y retención.
+## Identidad y seguridad
+
+- Cada instalación/perfil utiliza Firebase Anonymous Authentication y un UID propio.
+- Las reglas Firestore deben permitir que el perfil anónimo escriba únicamente su propio documento `devices/{UID}`; no debe poder leer el inventario global, las políticas ni la auditoría.
+- La clave Firebase web del cliente no es una credencial de administrador. No publiques claves de service account ni credenciales Admin SDK en el código cliente.
+- Antes de utilizar datos reales, valida las reglas con Firebase Emulator o Rules Playground, comprueba los permisos de cada rol y protege las cuentas del personal.
+
+## Límites operativos
+
+- La sincronización y la señal de actividad se producen aproximadamente cada minuto cuando Chrome permite ejecutar el service worker y hay conexión. No es una garantía de tiempo real.
+- La extensión controla navegación web HTTP/HTTPS dentro de Chrome; no controla aplicaciones nativas, otros navegadores ni todo el sistema operativo.
+- Una extensión normal no puede impedir su propia desinstalación ni bloquear páginas internas como `chrome://extensions`. Para instalación forzada y control de desinstalación se requiere administración de Chrome mediante Google Admin Console / Chrome Education o Chrome Enterprise.
+- La funcionalidad debe probarse en Chromebooks reales antes de considerarse validada para producción.
+
+## Publicación del panel
+
+El panel estático se publica desde esta carpeta `admin/`. En Render, configura `admin` como **Publish Directory**. URL del panel configurado: https://extension-2-85.onrender.com/
+
