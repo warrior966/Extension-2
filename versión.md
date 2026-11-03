@@ -175,3 +175,9 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se actualiza `admin/assets/focus-guard-icon.svg` con el mismo diseño renovado que utiliza la extensión.
 - El favicon y las imágenes de marca del panel ahora apuntan al recurso actualizado de su propia carpeta `admin/assets`.
 - Se incrementa la versión del manifiesto para registrar este ajuste.
+
+## Versión 2.1.0 — actualización de los logotipos completos
+
+- Se rediseñan `assets/focus-guard-logo.svg` y `admin/assets/focus-guard-logo.svg` para incorporar el nuevo escudo azul con candado y libro abierto.
+- Se conserva el nombre Focus Guard y el lema de navegación segura, con una composición horizontal adaptada a los encabezados y espacios de marca.
+- Se incrementa la versión del manifiesto a 2.1.0.
