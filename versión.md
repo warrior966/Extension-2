@@ -96,3 +96,24 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 2. Se indicarán las funciones añadidas, modificadas o corregidas.
 3. Se anotarán los archivos afectados y, cuando estén disponibles, los commits.
 4. Se distinguirán las funciones implementadas de las que todavía no se han probado en los dispositivos reales.
+
+## Versión 2.0.5
+
+### URL actual de cada dispositivo
+- El service worker consulta la pestaña activa del navegador y guarda su URL HTTP/HTTPS completa (incluidos ruta y parámetros) en el campo `currentUrl` del documento del dispositivo.
+- El dato se actualiza junto con el heartbeat de cada minuto.
+- En el inventario del panel se incorpora el botón **Ver URL** para consultar la dirección exacta y abrirla en una pestaña nueva.
+- El panel vuelve a consultar el inventario cada minuto para mostrar los cambios sin tener que recargar la página.
+- Si no hay una pestaña web activa o el equipo aún no ha sincronizado este campo, el panel lo indica.
+
+### Archivos modificados
+- `service-worker.js`: captura y sincronización de la URL activa.
+- `firestore.rules`: permite al dispositivo guardar su propia URL, con un máximo de 2048 caracteres.
+- `admin/admin.js`: botón de consulta, ventana de detalle y actualización periódica del inventario.
+- `admin/index.html` y `admin/admin.css`: interfaz para mostrar la dirección.
+- `manifest.json`: versión `2.0.5`.
+
+**Privacidad y alcance:** la URL se guarda completa, por lo que puede incluir rutas, términos de búsqueda o parámetros de una página. Debe informarse de esta supervisión a los usuarios de los dispositivos conforme a las normas del centro. Solo se captura la pestaña activa en la ventana enfocada; no se recopilan las URL de todas las pestañas.
+
+**Pendiente de verificación:** publicar las nuevas reglas de `firestore.rules` en Firebase Console, actualizar la extensión a 2.0.5 y comprobar en un Chromebook real que la URL se actualiza en Firestore y aparece en el panel aproximadamente cada minuto. Esta función todavía no se considera probada en dispositivos reales.
+
