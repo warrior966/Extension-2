@@ -169,3 +169,9 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Rediseño del logotipo Focus Guard: escudo azul con candado y libro abierto, acabado limpio y mejor contraste en tamaños pequeños.
 - Se mantiene un único recurso de marca para popup, página de bloqueo, favicon y panel de administración.
 - Se actualiza la versión del manifiesto a 2.0.8.
+
+## Versión 2.0.9 — logo del panel de administración
+
+- Se actualiza `admin/assets/focus-guard-icon.svg` con el mismo diseño renovado que utiliza la extensión.
+- El favicon y las imágenes de marca del panel ahora apuntan al recurso actualizado de su propia carpeta `admin/assets`.
+- Se incrementa la versión del manifiesto para registrar este ajuste.
