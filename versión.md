@@ -128,3 +128,12 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 
 **Pendiente de verificación:** recargar/actualizar la extensión en Chrome y comprobar el icono de la barra de herramientas. Si Chrome no acepta SVG como icono del manifiesto en el entorno utilizado, habrá que añadir versiones PNG del mismo logo.
 
+
+## Documentación — actualización de los dos README
+
+- Se ha reescrito `README.md` para describir las funciones actuales de la extensión 2.0.6: modos globales, lista negra, políticas por aula/grupo, sincronización, página de bloqueo, consulta de URL y límites operativos.
+- Se ha actualizado `admin/README.md` con pasos actuales de configuración de Firebase, publicación de reglas, registro de perfiles, control web, consulta de URL, roles, privacidad y despliegue del panel.
+- Se han corregido indicaciones antiguas sobre la frecuencia de sincronización y la disponibilidad de políticas por grupo.
+- Se han aclarado las limitaciones de supervisión de URL, funcionamiento offline y administración de Chrome.
+- No cambia el número de versión de la extensión: sigue siendo `2.0.6`.
+
