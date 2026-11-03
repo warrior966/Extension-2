@@ -19,7 +19,15 @@ function normalizeDomain(value) {
   return domain;
 }
 async function getSettings() {
-  return chrome.storage.local.get({ domains: [], enabled: false, remotePolicy: null, deviceName: "", deviceRoom: "Sin asignar", syncStatus: "", syncError: "", lastSyncAt: "" });
+  return chrome.storage.local.get({ domains: [], enabled: false, remotePolicy: null, deviceName: "", deviceRoom: "Sin asignar", profileLocked: false, syncStatus: "", syncError: "", lastSyncAt: "" });
+}
+function renderDeviceLock(settings) {
+  const locked = settings.profileLocked === true;
+  deviceNameInput.disabled = locked;
+  deviceRoomInput.disabled = locked;
+  syncButton.disabled = locked;
+  document.querySelector("#device-lock-note").hidden = !locked;
+  if (locked) syncStatus.textContent = "Datos del perfil bloqueados por el centro.";
 }
 async function render() {
   const { domains, enabled, remotePolicy } = await getSettings();
@@ -92,14 +100,18 @@ syncButton.addEventListener("click", async () => {
       room: deviceRoomInput.value.trim()
     });
     if (!response?.ok) throw new Error(response?.error || "No se pudo sincronizar");
-    syncStatus.textContent = "Sincronizado correctamente.";
+    syncStatus.textContent = response.device?.profileLocked
+      ? "Datos guardados y bloqueados por el centro."
+      : "Sincronizado correctamente.";
     syncStatus.dataset.state = "ok";
+    if (response.device) await chrome.storage.local.set({ profileLocked: response.device.profileLocked === true });
   } catch (error) {
     syncStatus.textContent = "No se pudo sincronizar: " + String(error.message || error);
     syncStatus.dataset.state = "error";
   } finally {
-    syncButton.disabled = false;
     const settings = await getSettings();
+    renderDeviceLock(settings);
+    if (!settings.profileLocked) syncButton.disabled = false;
     renderSyncStatus(settings);
   }
 });
@@ -108,6 +120,7 @@ async function init() {
   const settings = await getSettings();
   deviceNameInput.value = settings.deviceName;
   deviceRoomInput.value = settings.deviceRoom;
+  renderDeviceLock(settings);
   renderSyncStatus(settings);
   if (!settings.syncStatus) {
     try { chrome.runtime.sendMessage({type:"SYNC_DEVICE"}).then(async response => {
