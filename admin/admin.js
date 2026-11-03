@@ -52,7 +52,7 @@ function lastSeenLabel(d) {
 function renderDevices() {
   const term = $("deviceSearch").value.trim().toLocaleLowerCase("es"), status = $("statusFilter").value;
   const filtered = devices.filter(d => (status === "all" || d.status === status) && [d.name,d.room,d.owner,d.platform,d.id].some(v => String(v || "").toLocaleLowerCase("es").includes(term)));
-  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td><div class="row-actions"><button class="mini-btn" data-view-url="${esc(d.id)}">Ver URL</button>${canOperate() ? '<button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${role === "admin" ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
+  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td>${d.profileLocked === true ? "Bloqueados" : "Desbloqueados"}</td><td><div class="row-actions"><button class="mini-btn" data-view-url="${esc(d.id)}">Ver URL</button>${canOperate() ? '<button class="mini-btn" data-toggle-profile-lock="'+esc(d.id)+'">'+(d.profileLocked === true ? "Desbloquear datos" : "Bloquear datos")+'</button><button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${role === "admin" ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
   $("emptyDevices").hidden = filtered.length > 0;
   stats();
 }
@@ -243,6 +243,20 @@ $("statusFilter").addEventListener("change", renderDevices);
 $("deviceRows").addEventListener("click", async e => {
   const viewUrl = e.target.closest("[data-view-url]");
   if (viewUrl) { showDeviceUrl(viewUrl.dataset.viewUrl); return; }
+  const toggleLock = e.target.closest("[data-toggle-profile-lock]");
+  if (toggleLock) {
+    const d = devices.find(x => x.id === toggleLock.dataset.toggleProfileLock);
+    if (!d || !canOperate()) return;
+    const nextLocked = d.profileLocked !== true;
+    const action = nextLocked ? "bloquear" : "desbloquear";
+    if (!confirm("¿Quieres "+action+" el nombre y aula/grupo de este perfil?")) return;
+    try {
+      await setDoc(doc(db, "devices", d.id), {profileLocked:nextLocked,updatedAt:serverTimestamp(),updatedBy:user.uid}, {merge:true});
+      await log(nextLocked ? "Datos de perfil bloqueados" : "Datos de perfil desbloqueados", d.id+" · "+d.name);
+      await refresh(); toast(nextLocked ? "Datos bloqueados" : "Datos desbloqueados");
+    } catch (err) { fail("No se pudieron cambiar los permisos de edición del perfil.", err); }
+    return;
+  }
   const edit = e.target.closest("[data-edit]"), del = e.target.closest("[data-delete]");
   if (edit) { const d = devices.find(x => x.id === edit.dataset.edit); if (d) openDevice(d); }
   if (del) {
