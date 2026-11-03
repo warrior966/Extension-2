@@ -153,6 +153,13 @@ async function syncDevice(overrides = {}) {
   await chrome.storage.local.set({ deviceName: name, deviceRoom: room });
 
   const now = new Date().toISOString();
+  let currentUrl = "";
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (activeTab?.url && /^https?:\/\//i.test(activeTab.url)) currentUrl = activeTab.url.slice(0, 2048);
+  } catch (error) {
+    console.warn("Focus Guard could not read the active tab URL:", error.message || error);
+  }
   const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
   let deviceStatus = "Pendiente";
   let assignedRoom = "";
@@ -176,6 +183,7 @@ async function syncDevice(overrides = {}) {
     status: { stringValue: deviceStatus },
     updatedAt: { timestampValue: now },
     lastSeen: { timestampValue: now },
+    currentUrl: { stringValue: currentUrl },
     updatedBy: { stringValue: session.uid }
   };
   const mask = Object.keys(fields).map(key => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join("&");
@@ -185,7 +193,7 @@ async function syncDevice(overrides = {}) {
     headers: { "Authorization": `Bearer ${session.idToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ fields })
   });
-  return { uid: session.uid, name, room: effectiveRoom, lastSeen: now };
+  return { uid: session.uid, name, room: effectiveRoom, lastSeen: now, currentUrl };
 }
 
 async function syncRemotePolicy(deviceRoom = "") {
