@@ -163,3 +163,9 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se corrigió el separador de líneas de la lista negra global en el panel. Antes, el patrón podía tratar las letras `r` y `n` como separadores y partir dominios válidos.
 - Ahora acepta dominios completos separados por saltos de línea, comas o punto y coma, por ejemplo `gemini.google.com`.
 - No se ha añadido Gemini como excepción automática: en modo **Lista blanca**, el administrador debe incluir `gemini.google.com` en la lista blanca para permitirlo. La lista negra global sigue teniendo prioridad y lo bloqueará si también aparece allí.
+
+## Versión 2.0.8 — identidad visual renovada
+
+- Rediseño del logotipo Focus Guard: escudo azul con candado y libro abierto, acabado limpio y mejor contraste en tamaños pequeños.
+- Se mantiene un único recurso de marca para popup, página de bloqueo, favicon y panel de administración.
+- Se actualiza la versión del manifiesto a 2.0.8.
