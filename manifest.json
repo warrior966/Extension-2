@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Focus Guard",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "Bloqueo web con políticas por aula, página de bloqueo personalizada y sincronización Firebase.",
   "permissions": [
     "storage",
@@ -15,7 +15,11 @@
   },
   "action": {
     "default_title": "Focus Guard",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/focus-guard-icon.svg",
+      "32": "assets/focus-guard-icon.svg"
+    }
   },
   "host_permissions": [
     "http://*/*",
@@ -33,5 +37,11 @@
         "https://*/*"
       ]
     }
-  ]
+  ],
+  "icons": {
+    "16": "assets/focus-guard-icon.svg",
+    "32": "assets/focus-guard-icon.svg",
+    "48": "assets/focus-guard-icon.svg",
+    "128": "assets/focus-guard-icon.svg"
+  }
 }
