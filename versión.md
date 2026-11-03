@@ -157,3 +157,9 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - `manifest.json`: versión `2.0.7`.
 
 **Pendiente de despliegue y prueba:** publicar las nuevas reglas Firestore en Firebase Console y actualizar la extensión. Comprobar el primer registro, el bloqueo al reabrir el popup, el desbloqueo desde el panel, la edición y el nuevo bloqueo después de guardar. No se ha probado en un Chromebook real.
+
+## Corrección de lista negra
+
+- Se corrigió el separador de líneas de la lista negra global en el panel. Antes, el patrón podía tratar las letras `r` y `n` como separadores y partir dominios válidos.
+- Ahora acepta dominios completos separados por saltos de línea, comas o punto y coma, por ejemplo `gemini.google.com`.
+- No se ha añadido Gemini como excepción automática: en modo **Lista blanca**, el administrador debe incluir `gemini.google.com` en la lista blanca para permitirlo. La lista negra global sigue teniendo prioridad y lo bloqueará si también aparece allí.
