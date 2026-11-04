@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAHpkWaFwwI-QJWd06Dzkt6kc2tJXSkdA0",
@@ -14,7 +14,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
-let user = null, role = "viewer", devices = [], policies = [], audit = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false, deviceRefreshTimer = null;
+let user = null, role = "viewer", devices = [], policies = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false, deviceRefreshTimer = null;
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const canOperate = () => role === "admin" || role === "operator";
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
@@ -23,7 +23,6 @@ function stats() {
   $("deviceCount").textContent = devices.length;
   $("activeCount").textContent = devices.filter(d => d.status === "Activo" && d.lastSeen?.toDate && (Date.now() - d.lastSeen.toDate().getTime()) < 15 * 60 * 1000).length;
   $("policyCount").textContent = policies.length;
-  $("eventCount").textContent = audit.length;
 }
 async function refreshDeviceLocations() {
   try {
@@ -60,19 +59,6 @@ function renderPolicies() {
   $("policyList").innerHTML = policies.map(p => `<article class="policy-card"><span class="eyebrow">${esc(p.id)}</span><h3>${esc(p.name)}</h3><div class="group">${esc(p.group)}</div><p>${esc(p.notes || "Sin notas adicionales.")}</p>${role === "admin" ? '<button class="mini-btn danger" data-policy-delete="'+esc(p.id)+'">Eliminar perfil</button>' : ''}</article>`).join("") || '<p class="empty">Aún no hay perfiles. Crea uno para documentar una política.</p>';
   stats();
 }
-function renderAudit() {
-  $("auditList").innerHTML = audit.map(e => `<div class="audit-item"><span class="audit-icon">✓</span><div><strong>${esc(e.action)}</strong><p>${esc(e.detail)} · ${esc(e.actorEmail || "")}</p><time>${e.at?.toDate ? e.at.toDate().toLocaleString("es-ES") : "Fecha no disponible"}</time></div></div>`).join("") || '<p class="empty">No hay eventos registrados.</p>';
-  stats();
-}
-async function loadAudit() {
-  if (role === "viewer") { audit = []; renderAudit(); return; }
-  const snap = await getDocs(query(collection(db, "audit"), orderBy("at", "desc"), limit(100)));
-  audit = snap.docs.map(d => ({id:d.id,...d.data()})); renderAudit();
-}
-async function log(action, detail) {
-  await addDoc(collection(db, "audit"), {action, detail, actorUid:user.uid, actorEmail:user.email || "", at:serverTimestamp()});
-  await loadAudit();
-}
 async function refresh() {
   const [ds, ps, policySnap, groupSnap] = await Promise.all([
     getDocs(query(collection(db, "devices"), orderBy("name"))),
@@ -95,7 +81,7 @@ async function refresh() {
   groupPolicyError = !groupSnap;
   groupPolicies = groupSnap?.exists() && Array.isArray(groupSnap.data().groups) ? groupSnap.data().groups.filter(g => g && typeof g.name === "string" && ["free","block_all","whitelist"].includes(g.mode)).map(g => ({name:g.name, mode:g.mode, whitelist:Array.isArray(g.whitelist) ? g.whitelist.filter(v => typeof v === "string").slice(0,50) : []})) : [];
   renderGroupPolicies();
-  await loadAudit(); renderDevices(); renderPolicies();
+  renderDevices(); renderPolicies();
 }
 function renderNavigationPolicy() {
   const mode = $("navigationMode"), list = $("whitelistDomains"), black = $("blacklistDomains"), save = $("saveNavigationPolicyBtn");
@@ -177,7 +163,6 @@ $("navigationPolicyForm").addEventListener("submit", async e => {
     await setDoc(doc(db, "settings", "globalPolicy"), payload);
     navigationPolicy = { mode, whitelist: normalized, blacklist };
     status.textContent = "Política guardada. Las extensiones conectadas la recogerán automáticamente en un máximo aproximado de 1 minuto; también se cerrará la navegación ya abierta que quede bloqueada.";
-    await log("Política de navegación actualizada", navigationModeLabel(mode) + " · " + (mode === "whitelist" ? normalized.length + " dominios permitidos" : "lista guardada"));
     toast("Política de navegación guardada");
     renderNavigationPolicy();
     status.textContent = "Política guardada: " + navigationModeLabel(mode) + ". Las extensiones conectadas la recogerán automáticamente en un máximo aproximado de 1 minuto.";
@@ -216,7 +201,6 @@ $("groupPolicyForm").addEventListener("submit", async e => {
     const group = {name, mode, whitelist:normalized};
     if (existing >= 0) groupPolicies[existing] = group; else groupPolicies.push(group);
     await saveGroupPolicies();
-    await log("Política de aula/grupo actualizada", name + " · " + navigationModeLabel(mode));
     renderGroupPolicies();
     $("groupPolicyStatus").textContent = "Política del grupo guardada. Los dispositivos la recibirán en su próxima sincronización.";
     $("groupPolicyForm").reset();
@@ -232,7 +216,7 @@ $("groupPolicyList").addEventListener("click", async e => {
   if (del) {
     const name = del.dataset.groupDelete;
     if (role !== "admin" || !confirm("¿Eliminar la política del grupo " + name + "?")) return;
-    try { groupPolicies = groupPolicies.filter(g => g.name !== name); await saveGroupPolicies(); await log("Política de aula/grupo eliminada", name); renderGroupPolicies(); toast("Política de grupo eliminada"); }
+    try { groupPolicies = groupPolicies.filter(g => g.name !== name); await saveGroupPolicies(); renderGroupPolicies(); toast("Política de grupo eliminada"); }
     catch (err) { fail("No se pudo eliminar la política del grupo.", err); }
   }
 });
@@ -252,7 +236,6 @@ $("deviceRows").addEventListener("click", async e => {
     if (!confirm("¿Quieres "+action+" el nombre y aula/grupo de este perfil?")) return;
     try {
       await setDoc(doc(db, "devices", d.id), {profileLocked:nextLocked,updatedAt:serverTimestamp(),updatedBy:user.uid}, {merge:true});
-      await log(nextLocked ? "Datos de perfil bloqueados" : "Datos de perfil desbloqueados", d.id+" · "+d.name);
       await refresh(); toast(nextLocked ? "Datos bloqueados" : "Datos desbloqueados");
     } catch (err) { fail("No se pudieron cambiar los permisos de edición del perfil.", err); }
     return;
@@ -262,7 +245,7 @@ $("deviceRows").addEventListener("click", async e => {
   if (del) {
     const d = devices.find(x => x.id === del.dataset.delete);
     if (d && confirm("¿Eliminar el registro "+d.name+"? No afecta al equipo real.")) try {
-      await deleteDoc(doc(db, "devices", d.id)); await log("Registro de equipo eliminado", d.id+" · "+d.name); await refresh(); toast("Registro eliminado");
+      await deleteDoc(doc(db, "devices", d.id)); await refresh(); toast("Registro eliminado");
     } catch (err) { fail("No se pudo eliminar el registro. Comprueba los permisos.", err); }
   }
 });
@@ -274,7 +257,7 @@ $("deviceForm").addEventListener("submit", async e => {
     const d = {name:$("deviceName").value.trim(),room:$("deviceRoom").value.trim(),owner:$("deviceOwner").value.trim(),platform:$("devicePlatform").value,status:$("deviceStatus").value,updatedAt:serverTimestamp(),updatedBy:user.uid};
     if (!d.name || !d.room) return;
     await setDoc(doc(db, "devices", id), d, {merge:true});
-    $("deviceDialog").close(); await log(oldId ? "Registro de equipo actualizado" : "Equipo registrado", id+" · "+d.name); await refresh(); toast("Equipo guardado");
+    $("deviceDialog").close(); await refresh(); toast("Equipo guardado");
   } catch (err) { fail(err.message || "No se pudo guardar el equipo.", err); }
 });
 $("addPolicyBtn").addEventListener("click", () => { $("policyForm").reset(); $("policyDialog").showModal(); });
@@ -284,13 +267,13 @@ $("policyForm").addEventListener("submit", async e => {
     if (!canOperate()) throw new Error("Tu rol no permite crear perfiles.");
     const p = {name:$("policyName").value.trim(),group:$("policyGroup").value.trim(),notes:$("policyNotes").value.trim(),createdAt:serverTimestamp(),createdBy:user.uid};
     if (!p.name || !p.group) return;
-    await addDoc(collection(db, "policies"), p); $("policyDialog").close(); await log("Perfil de política creado", p.name+" · "+p.group); await refresh(); toast("Perfil creado");
+    await setDoc(doc(db, "policies", "POL-"+crypto.randomUUID().slice(0,8).toUpperCase()), p); $("policyDialog").close(); await refresh(); toast("Perfil creado");
   } catch (err) { fail(err.message || "No se pudo crear el perfil.", err); }
 });
 $("policyList").addEventListener("click", async e => {
   const b = e.target.closest("[data-policy-delete]"); if (!b) return;
   const p = policies.find(x => x.id === b.dataset.policyDelete);
-  if (p && confirm("¿Eliminar este perfil?")) try { await deleteDoc(doc(db, "policies", p.id)); await log("Perfil de política eliminado", p.name); await refresh(); toast("Perfil eliminado"); }
+  if (p && confirm("¿Eliminar este perfil?")) try { await deleteDoc(doc(db, "policies", p.id)); await refresh(); toast("Perfil eliminado"); }
   catch (err) { fail("No se pudo eliminar el perfil.", err); }
 });
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => $(b.dataset.close).close()));
