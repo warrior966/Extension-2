@@ -14,9 +14,13 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const $ = id => document.getElementById(id);
-let user = null, role = "viewer", devices = [], policies = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false, deviceRefreshTimer = null;
+let user = null, role = "viewer", accessExpiresAt = null, accessExpiryTimer = null, devices = [], policies = [], managedUsers = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false, deviceRefreshTimer = null;
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const canOperate = () => role === "admin" || role === "operator";
+const canOperate = () => ["owner","admin","operator"].includes(role);
+const isOwner = () => role === "owner";
+function remainingLabel(date) { const ms=date-Date.now(); if(ms<=0)return "Caducado"; const d=Math.floor(ms/86400000),h=Math.floor(ms%86400000/3600000),m=Math.floor(ms%3600000/60000); return [d?d+" d":null,h?h+" h":null,(!d&&!h)||m?m+" min":null].filter(Boolean).join(" "); }
+function enforceExpiry(){ if(accessExpiresAt && accessExpiresAt.toMillis()<=Date.now()){ if(accessExpiryTimer)clearInterval(accessExpiryTimer); signOut(auth); $("loginError").textContent="Tu tiempo de acceso al panel ha finalizado. Contacta con el owner del panel."; return true;} return false; }
+function updateAccessSummary(){ const card=$("accessTimeCard"); if(!card)return; card.hidden=!accessExpiresAt; if(accessExpiresAt){$("accessTimeRemaining").textContent=remainingLabel(accessExpiresAt.toDate()); if(enforceExpiry())return;} }
 function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
 function fail(message, err) { console.error(message, err); toast(message); }
 function stats() {
@@ -119,17 +123,19 @@ $("loginForm").addEventListener("submit", async e => {
 $("logoutBtn").addEventListener("click", () => signOut(auth));
 onAuthStateChanged(auth, async u => {
   user = u;
-  if (!u) { if (deviceRefreshTimer) { clearInterval(deviceRefreshTimer); deviceRefreshTimer = null; } $("loginScreen").hidden = false; $("appShell").hidden = true; return; }
+  if (!u) { if(accessExpiryTimer){clearInterval(accessExpiryTimer);accessExpiryTimer=null;} accessExpiresAt=null; if (deviceRefreshTimer) { clearInterval(deviceRefreshTimer); deviceRefreshTimer = null; } $("loginScreen").hidden = false; $("appShell").hidden = true; return; }
   try {
     const profile = await getDoc(doc(db, "users", u.uid));
-    const assignedRole = profile.exists() ? profile.data().role : null;
-    if (!["admin","operator","viewer"].includes(assignedRole)) {
-      await signOut(auth); $("loginError").textContent = "Cuenta autenticada pero sin rol autorizado. Un administrador debe crear users/"+u.uid+" con role admin, operator o viewer."; return;
+    const profileData = profile.exists() ? profile.data() : {};
+    const assignedRole = profileData.role || null;
+    accessExpiresAt = profileData.expiresAt || null;
+    if (!["owner","admin","operator","viewer"].includes(assignedRole) || (accessExpiresAt && accessExpiresAt.toMillis() <= Date.now())) {
+      await signOut(auth); $("loginError").textContent = "Cuenta autenticada pero sin rol autorizado. El owner debe autorizar users/"+u.uid+" con role admin, operator o viewer."; return;
     }
-    role = assignedRole; $("accountLabel").textContent = (u.email || "Usuario") + " · " + role;
+    role = assignedRole; $("usersNav").hidden = !isOwner(); $("users").hidden = !isOwner(); updateAccessSummary(); if(accessExpiryTimer)clearInterval(accessExpiryTimer); if(accessExpiresAt)accessExpiryTimer=setInterval(updateAccessSummary,30000); $("accountLabel").textContent = (u.email || "Usuario") + " · " + role;
     $("loginScreen").hidden = true; $("appShell").hidden = false;
     $("roleNotice").hidden = canOperate(); $("roleNotice").textContent = "Tu rol es de solo lectura.";
-    $("addDeviceBtn").hidden = !canOperate(); $("addPolicyBtn").hidden = !canOperate();
+    $("addDeviceBtn").hidden = !canOperate(); $("addPolicyBtn").hidden = !canOperate(); if(isOwner()) await loadManagedUsers();
     await refresh();
     if (deviceRefreshTimer) clearInterval(deviceRefreshTimer);
     deviceRefreshTimer = setInterval(refreshDeviceLocations, 60_000);
@@ -283,3 +289,24 @@ $("exportBtn").addEventListener("click", () => {
   const url = URL.createObjectURL(new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"}));
   const a = document.createElement("a"); a.href = url; a.download = "focus-guard-inventario.csv"; a.click(); URL.revokeObjectURL(url);
 });
+
+async function loadManagedUsers(){
+ const snap=await getDocs(collection(db,"users"));
+ managedUsers=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>x.role!=="owner");
+ $("managedUsersList").innerHTML=managedUsers.map(x=>'<article class="policy-card"><span class="eyebrow">'+esc(x.uid)+'</span><h3>'+esc(x.email||"Usuario")+'</h3><div class="group">'+esc(x.role||"Sin rol")+'</div><p>'+(x.expiresAt?.toDate?"Acceso hasta: "+esc(x.expiresAt.toDate().toLocaleString("es-ES")):"Sin fecha de caducidad")+'</p></article>').join("")||'<p class="empty">No hay usuarios gestionables.</p>';
+}
+$("userAccessForm").addEventListener("submit",async e=>{
+ e.preventDefault();const status=$("userAccessStatus");try{
+ if(!isOwner())throw new Error("Solo el owner puede gestionar usuarios.");
+ const uid=$("managedUserUid").value.trim(),newRole=$("managedUserRole").value,raw=$("managedUserExpires").value;
+ if(!uid||uid===user.uid)throw new Error("Indica el UID de otra cuenta.");
+ const ref=doc(db,"users",uid),snap=await getDoc(ref);
+ if(!snap.exists())throw new Error("No existe users/"+uid+". Crea primero la cuenta y su documento de usuario.");
+ if(snap.data().role==="owner")throw new Error("No puedes modificar ni asignar el rol owner.");
+ const expiresAt=raw?new Date(raw):null;
+ if(raw&&(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()))throw new Error("La fecha debe estar en el futuro.");
+ await setDoc(ref,{role:newRole,expiresAt:expiresAt?expiresAt:null,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});
+ status.textContent="Acceso actualizado correctamente."; $("userAccessForm").reset();await loadManagedUsers();
+ }catch(err){status.textContent=err.message||"No se pudo actualizar el usuario.";}
+});
+$("accessTimeInfoBtn").addEventListener("click",()=>$("accessInfoDialog").showModal());
