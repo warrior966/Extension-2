@@ -69,7 +69,8 @@ Si fallan las solicitudes de red o la sincronización, la extensión puede activ
 
 ## Roles del panel
 
-- `admin`: acceso completo, incluida la eliminación de registros.
+- `admin`: acceso completo, incluida la eliminación de dispositivos, perfiles y configuraciones.
+- `owner`: puede gestionar roles y caducidades de usuarios, pero no puede eliminar ningún registro ni configuración. Firestore también bloquea esos borrados aunque se intente fuera de la interfaz.
 - `operator`: puede consultar y gestionar dispositivos/perfiles.
 - `viewer`: puede consultar dispositivos y perfiles, pero no modificarlos ni consultar auditoría.
 
