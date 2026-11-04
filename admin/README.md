@@ -1,6 +1,6 @@
 # Focus Guard · Panel de administración
 
-Panel web para gestionar perfiles de Chrome, políticas de navegación y auditoría mediante Firebase Authentication y Cloud Firestore. La extensión Chrome se registra mediante autenticación anónima; el personal del centro accede al panel con cuentas autorizadas.
+Panel web para gestionar perfiles de Chrome, políticas de navegación mediante Firebase Authentication y Cloud Firestore. La extensión Chrome se registra mediante autenticación anónima; el personal del centro accede al panel con cuentas autorizadas.
 
 ## Configuración inicial de Firebase
 
@@ -69,8 +69,8 @@ Si fallan las solicitudes de red o la sincronización, la extensión puede activ
 
 ## Roles del panel
 
-- `admin`: acceso completo, incluida la eliminación de registros y la consulta de auditoría.
-- `operator`: puede consultar y gestionar dispositivos/perfiles y consultar auditoría.
+- `admin`: acceso completo, incluida la eliminación de registros.
+- `operator`: puede consultar y gestionar dispositivos/perfiles.
 - `viewer`: puede consultar dispositivos y perfiles, pero no modificarlos ni consultar auditoría.
 
 El rol se obtiene del documento `users/{UID}` de Firestore. Las asignaciones deben realizarse desde un entorno de confianza.
