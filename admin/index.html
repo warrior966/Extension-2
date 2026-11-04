@@ -20,14 +20,14 @@
   <div id="appShell" hidden>
   <aside class="sidebar">
     <div class="brand"><img class="brand-icon" src="assets/focus-guard-icon.svg" alt=""><span><strong>Focus Guard</strong><small>Administración educativa</small></span></div>
-    <nav aria-label="Navegación principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#devices">▣ <span>Dispositivos</span></a><a class="nav-link" href="#policies">◈ <span>Políticas</span></a><a class="nav-link" href="#navigationPolicy">⛨ <span>Control web</span></a><a class="nav-link" href="#groups">▤ <span>Aulas y grupos</span></a><a class="nav-link" href="#audit">≡ <span>Auditoría</span></a></nav>
+    <nav aria-label="Navegación principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#devices">▣ <span>Dispositivos</span></a><a class="nav-link" href="#policies">◈ <span>Políticas</span></a><a class="nav-link" href="#navigationPolicy">⛨ <span>Control web</span></a><a class="nav-link" href="#groups">▤ <span>Aulas y grupos</span></a></nav>
     <div class="sidebar-note"><span class="status-dot"></span> Firebase conectado <p>Los datos se sincronizan con Cloud Firestore.</p></div>
   </aside>
   <main>
     <header class="topbar"><div><p class="eyebrow">CENTRO EDUCATIVO / IT</p><h1>Panel de administración</h1></div><div class="account-box"><span id="accountLabel" class="admin-pill">Sesión activa</span><button id="logoutBtn" class="btn secondary">Cerrar sesión</button></div></header>
     <p id="roleNotice" class="notice" hidden></p>
     <section id="overview" class="section"><div class="section-heading"><div><h2>Resumen del centro</h2><p>Inventario y perfiles guardados en la nube.</p></div><button id="exportBtn" class="btn secondary">Exportar inventario CSV</button></div>
-      <div class="stats"><article class="stat-card"><span>Dispositivos registrados</span><strong id="deviceCount">0</strong><small>Registros en Firestore</small></article><article class="stat-card"><span>Conectados recientemente</span><strong id="activeCount">0</strong><small>Señal recibida en los últimos 15 minutos</small></article><article class="stat-card"><span>Perfiles de política</span><strong id="policyCount">0</strong><small>Documentación de políticas</small></article><article class="stat-card"><span>Eventos de auditoría</span><strong id="eventCount">0</strong><small>Registros recientes</small></article></div>
+      <div class="stats"><article class="stat-card"><span>Dispositivos registrados</span><strong id="deviceCount">0</strong><small>Registros en Firestore</small></article><article class="stat-card"><span>Conectados recientemente</span><strong id="activeCount">0</strong><small>Señal recibida en los últimos 15 minutos</small></article><article class="stat-card"><span>Perfiles de política</span><strong id="policyCount">0</strong><small>Documentación de políticas</small></article></div>
     </section>
     <section id="devices" class="section panel"><div class="section-heading"><div><h2>Inventario de dispositivos</h2><p>Registra perfiles de ChromeOS y asígnalos a un aula o grupo. La URL web activa se sincroniza aproximadamente cada minuto.</p></div><button id="addDeviceBtn" class="btn primary">+ Registrar equipo</button></div>
       <div class="toolbar"><input id="deviceSearch" type="search" placeholder="Buscar por nombre, aula o responsable…" aria-label="Buscar dispositivos"><select id="statusFilter" aria-label="Filtrar por estado"><option value="all">Todos los estados</option><option value="Activo">Activo</option><option value="Mantenimiento">Mantenimiento</option><option value="Retirado">Retirado</option></select></div>
@@ -64,7 +64,6 @@
       </form>
       <div id="groupPolicyList" class="policy-grid"></div>
     </section>
-    <section id="audit" class="section panel"><div class="section-heading"><div><h2>Registro de auditoría</h2><p>Acciones recientes registradas en Firestore.</p></div></div><div id="auditList" class="audit-list"></div></section>
     <footer>Focus Guard · Panel conectado a Firebase · Inventario por perfil de Chrome.</footer>
   </main>
   <dialog id="deviceDialog"><form id="deviceForm"><div class="dialog-head"><div><p class="eyebrow">INVENTARIO</p><h2 id="deviceDialogTitle">Registrar equipo</h2></div><button type="button" class="icon-btn" data-close="deviceDialog" aria-label="Cerrar">×</button></div><input type="hidden" id="deviceId">
