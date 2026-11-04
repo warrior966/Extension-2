@@ -199,3 +199,13 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se actualiza el manifiesto a 2.1.2.
 
 **Nota:** los documentos de auditoría que ya existan en Firestore no se borran automáticamente; esta actualización elimina su uso desde el panel y sus permisos definidos en estas reglas.
+
+
+## Versión 2.2.0 — rol owner y caducidad de acceso
+
+- Se incorpora el rol `owner`, con capacidad de asignar `admin`, `operator` o `viewer` a otras cuentas existentes, sin poder asignar ni modificar cuentas `owner`.
+- El owner puede establecer una fecha y hora de caducidad para el acceso de cada usuario gestionado, o dejarlo sin límite.
+- El panel cierra la sesión al alcanzar la fecha de caducidad y Firestore deniega el acceso a los datos del panel a cuentas caducadas.
+- El resumen muestra el tiempo restante y un botón que explica su significado.
+- Se amplían las reglas de Firestore para proteger la gestión de roles y fechas de caducidad.
+- Las cuentas existentes no se convierten automáticamente en owner: el primer owner debe configurarse de forma segura en Firebase Console.
