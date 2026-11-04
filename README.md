@@ -57,7 +57,7 @@ Para entornos educativos administrados, se recomienda distribuir y controlar la 
 
 ## Roles del panel
 
-- `admin`: administración completa, incluidos borrado y auditoría.
+- `admin`: administración completa de los registros, incluida su eliminación.
 - `operator`: consulta y gestión operativa de dispositivos y perfiles, además de auditoría.
 - `viewer`: consulta de dispositivos y perfiles, sin cambios ni acceso a auditoría.
 
@@ -86,5 +86,5 @@ El panel está preparado para publicarse desde la carpeta `admin/` (por ejemplo,
 
 
 ### Roles de acceso al panel
-- `owner`: gestiona roles y fechas de caducidad de otros usuarios; no puede crear otros owners.
+- `owner`: gestiona roles y fechas de caducidad de otros usuarios; no puede crear otros owners ni eliminar dispositivos, perfiles o configuraciones.
 - `admin`, `operator` y `viewer`: mantienen sus permisos funcionales y pueden tener una fecha de caducidad asignada por el owner.
