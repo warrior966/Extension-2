@@ -267,7 +267,7 @@ $("policyForm").addEventListener("submit", async e => {
     if (!canOperate()) throw new Error("Tu rol no permite crear perfiles.");
     const p = {name:$("policyName").value.trim(),group:$("policyGroup").value.trim(),notes:$("policyNotes").value.trim(),createdAt:serverTimestamp(),createdBy:user.uid};
     if (!p.name || !p.group) return;
-    await setDoc(doc(db, "policies", "POL-"+crypto.randomUUID().slice(0,8).toUpperCase()), p); $("policyDialog").close(); await refresh(); toast("Perfil creado");
+    await addDoc(collection(db, "policies"), p); $("policyDialog").close(); await refresh(); toast("Perfil creado");
   } catch (err) { fail(err.message || "No se pudo crear el perfil.", err); }
 });
 $("policyList").addEventListener("click", async e => {
