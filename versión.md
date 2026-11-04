@@ -209,3 +209,13 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - El resumen muestra el tiempo restante y un botón que explica su significado.
 - Se amplían las reglas de Firestore para proteger la gestión de roles y fechas de caducidad.
 - Las cuentas existentes no se convierten automáticamente en owner: el primer owner debe configurarse de forma segura en Firebase Console.
+
+
+## Versión 2.2.1 — restricción de eliminación para owner
+
+- Se retira al rol `owner` cualquier permiso para eliminar dispositivos, perfiles de política o documentos de configuración.
+- Las reglas de Firestore reservan esas operaciones de borrado al rol `admin`; la colección `users` continúa sin permitir eliminaciones.
+- La interfaz ya no muestra acciones de eliminación al owner; se mantiene la capacidad de gestión de usuarios y caducidades.
+- Se actualiza la versión del manifiesto a 2.2.1.
+
+**Nota:** para que la restricción se aplique en Firebase, hay que publicar la versión actualizada de `firestore.rules` en Firebase Console.
