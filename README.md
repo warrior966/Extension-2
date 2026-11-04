@@ -86,5 +86,5 @@ El panel está preparado para publicarse desde la carpeta `admin/` (por ejemplo,
 
 
 ### Roles de acceso al panel
-- `owner`: gestiona roles y fechas de caducidad de otros usuarios; no puede crear otros owners ni eliminar dispositivos, perfiles o configuraciones.
+- `owner`: tiene todas las funciones de `admin`, incluidas las eliminaciones, y además gestiona roles y caducidades de usuarios. No puede asignar el rol `owner` a otras cuentas.
 - `admin`, `operator` y `viewer`: mantienen sus permisos funcionales y pueden tener una fecha de caducidad asignada por el owner.
