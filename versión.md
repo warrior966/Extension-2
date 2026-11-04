@@ -237,3 +237,12 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se actualizan los favicon y las imágenes del popup, la pantalla de bloqueo y el panel para utilizar el PNG.
 - Los SVG originales se conservan como recursos vectoriales de la marca.
 - Se incrementa el manifiesto a `2.2.3`.
+
+
+## Versión 2.2.4 — conversión fiel del icono a PNG
+
+- Se regeneran `assets/focus-guard-icon.png` y `admin/assets/focus-guard-icon.png` convirtiendo directamente el SVG original `focus-guard-icon.svg` con sus colores, formas, proporciones, degradados y sombras.
+- Los dos PNG ahora contienen el mismo diseño vectorial original; se elimina la imagen provisional distinta.
+- Se mantiene el formato PNG requerido por los iconos del manifiesto de Chrome.
+- Se actualiza `manifest.json` a `2.2.4`.
+
