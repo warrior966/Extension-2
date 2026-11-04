@@ -83,14 +83,5 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid;
       allow delete: if settingId in ['globalPolicy', 'groupPolicies'] && isAdmin();
     }
-    match /audit/{id} {
-      allow read: if signedIn() && role() in ['admin','operator'];
-      allow create: if canOperate()
-        && request.resource.data.keys().hasOnly(['action','detail','actorUid','actorEmail','at'])
-        && request.resource.data.action is string && request.resource.data.action.size() <= 120
-        && request.resource.data.detail is string && request.resource.data.detail.size() <= 500
-        && request.resource.data.actorUid == request.auth.uid;
-      allow update, delete: if false;
-    }
   }
 }
