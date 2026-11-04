@@ -230,9 +230,10 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 **Comprobación funcional (confirmada por el usuario):** se ha probado que el bloqueo offline actúa al apagar el Wi-Fi, que el rol `owner` dispone de todas las funciones previstas y que el botón **Sincronizar** funciona correctamente. El usuario confirma que todo funciona bien en sus pruebas.
 
 
-## Corrección de iconos — PNG compatible con Chrome
+## Versión 2.2.3 — iconos PNG compatibles con Chrome
 
 - Se añaden versiones PNG del icono Focus Guard en `assets/focus-guard-icon.png` y `admin/assets/focus-guard-icon.png`.
 - El manifiesto MV3 utiliza PNG para `icons` y `action.default_icon`, evitando SVG en los iconos de la extensión, que Chrome no admite como formato de icono del manifiesto.
 - Se actualizan los favicon y las imágenes del popup, la pantalla de bloqueo y el panel para utilizar el PNG.
 - Los SVG originales se conservan como recursos vectoriales de la marca.
+- Se incrementa el manifiesto a `2.2.3`.
