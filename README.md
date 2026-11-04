@@ -83,3 +83,8 @@ Los roles se asignan en Firestore mediante documentos de `users` cuyo ID coincid
 
 El panel está preparado para publicarse desde la carpeta `admin/` (por ejemplo, en Render como sitio estático, con `admin` como directorio de publicación).
 
+
+
+### Roles de acceso al panel
+- `owner`: gestiona roles y fechas de caducidad de otros usuarios; no puede crear otros owners.
+- `admin`, `operator` y `viewer`: mantienen sus permisos funcionales y pueden tener una fecha de caducidad asignada por el owner.
