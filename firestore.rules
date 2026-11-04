@@ -1,87 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function role() {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
-        : '';
-    }
-    function isAdmin() { return signedIn() && role() == 'admin'; }
-    function canOperate() { return signedIn() && role() in ['admin', 'operator']; }
-    function isAnonymousDeviceClient() {
-      return signedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
-    }
-    function isOwnDevice(id) {
-      return isAnonymousDeviceClient() && request.auth.uid == id;
-    }
-    function validDevice() {
-      return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','updatedBy','profileLocked'])
-        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
-        && request.resource.data.room is string && request.resource.data.room.size() > 0 && request.resource.data.room.size() <= 80
-        && request.resource.data.owner is string && request.resource.data.owner.size() <= 80
-        && request.resource.data.platform in ['Windows','ChromeOS','macOS','Linux','Otro']
-        && request.resource.data.status in ['Pendiente','Activo','Mantenimiento','Retirado']
-        && request.resource.data.updatedBy == request.auth.uid
-        && (!('profileLocked' in request.resource.data) || request.resource.data.profileLocked is bool);
-    }
-    function validChromeDevice() {
-      return validDevice()
-        && request.resource.data.platform == 'ChromeOS'
-        && request.resource.data.lastSeen is timestamp
-        && request.resource.data.currentUrl is string && request.resource.data.currentUrl.size() <= 2048
-        && request.resource.data.updatedAt is timestamp;
-    }
-
-    match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
-      // Los roles se asignan desde un entorno de confianza, nunca desde el cliente web.
-      allow create, update, delete: if false;
-    }
-    match /devices/{id} {
-      allow read: if signedIn() && (role() in ['admin','operator','viewer'] || isOwnDevice(id));
-      allow create: if (canOperate() && validDevice())
-        || (isOwnDevice(id) && validChromeDevice()
-          && request.resource.data.status == 'Pendiente'
-          && request.resource.data.profileLocked is bool);
-      allow update: if (canOperate() && validDevice())
-        || (isOwnDevice(id) && validChromeDevice()
-          && request.resource.data.status == resource.data.status
-          && request.resource.data.profileLocked == true
-          && (resource.data.profileLocked != true
-            || (request.resource.data.name == resource.data.name
-              && request.resource.data.room == resource.data.room)));
-      allow delete: if isAdmin();
-    }
-    match /policies/{id} {
-      allow read: if signedIn() && role() in ['admin','operator','viewer'];
-      allow create: if canOperate()
-        && request.resource.data.keys().hasOnly(['name','group','notes','createdAt','createdBy'])
-        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
-        && request.resource.data.group is string && request.resource.data.group.size() > 0 && request.resource.data.group.size() <= 80
-        && request.resource.data.notes is string && request.resource.data.notes.size() <= 500
-        && request.resource.data.createdBy == request.auth.uid;
-      allow update: if false;
-      allow delete: if isAdmin();
-    }
-    match /settings/{settingId} {
-      // La extensión anónima solo puede leer la política global; solo operadores/admin pueden cambiarla.
-      allow read: if settingId in ['globalPolicy', 'groupPolicies'] && signedIn()
-        && (isAnonymousDeviceClient() || role() in ['admin','operator','viewer']);
-      allow create, update: if settingId == 'globalPolicy' && canOperate()
-        && request.resource.data.keys().hasOnly(['mode','whitelist','blacklist','updatedAt','updatedBy'])
-        && request.resource.data.mode in ['free','block_all','whitelist']
-        && request.resource.data.whitelist is list
-        && request.resource.data.whitelist.size() <= 50
-        && request.resource.data.blacklist is list
-        && request.resource.data.blacklist.size() <= 50
-        && request.resource.data.updatedBy == request.auth.uid;
-      allow create, update: if settingId == 'groupPolicies' && canOperate()
-        && request.resource.data.keys().hasOnly(['groups','updatedAt','updatedBy'])
-        && request.resource.data.groups is list
-        && request.resource.data.groups.size() <= 100
-        && request.resource.data.updatedBy == request.auth.uid;
-      allow delete: if settingId in ['globalPolicy', 'groupPolicies'] && isAdmin();
-    }
+ match /databases/{database}/documents {
+  function signedIn(){return request.auth!=null;}
+  function userPath(uid){return /databases/$(database)/documents/users/$(uid);}
+  function hasUser(){return signedIn()&&exists(userPath(request.auth.uid));}
+  function role(){return hasUser()?get(userPath(request.auth.uid)).data.role:'';}
+  function activePanelUser(){return hasUser()&&role() in ['owner','admin','operator','viewer']&&(!('expiresAt' in get(userPath(request.auth.uid)).data)||get(userPath(request.auth.uid)).data.expiresAt==null||get(userPath(request.auth.uid)).data.expiresAt>request.time);}
+  function isOwner(){return activePanelUser()&&role()=='owner';}
+  function isAdmin(){return activePanelUser()&&role()=='admin';}
+  function canOperate(){return activePanelUser()&&role() in ['owner','admin','operator'];}
+  function isAnonymousDeviceClient(){return signedIn()&&request.auth.token.firebase.sign_in_provider=='anonymous';}
+  function isOwnDevice(id){return isAnonymousDeviceClient()&&request.auth.uid==id;}
+  function validDevice(){return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','updatedBy','profileLocked'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.room is string&&request.resource.data.room.size()>0&&request.resource.data.room.size()<=80&&request.resource.data.owner is string&&request.resource.data.owner.size()<=80&&request.resource.data.platform in ['Windows','ChromeOS','macOS','Linux','Otro']&&request.resource.data.status in ['Pendiente','Activo','Mantenimiento','Retirado']&&request.resource.data.updatedBy==request.auth.uid&&(!('profileLocked' in request.resource.data)||request.resource.data.profileLocked is bool);}
+  function validChromeDevice(){return validDevice()&&request.resource.data.platform=='ChromeOS'&&request.resource.data.lastSeen is timestamp&&request.resource.data.currentUrl is string&&request.resource.data.currentUrl.size()<=2048&&request.resource.data.updatedAt is timestamp;}
+  match /users/{uid}{
+   allow read: if activePanelUser()&&(request.auth.uid==uid||isOwner());
+   allow create: if false;
+   allow update: if isOwner()&&uid!=request.auth.uid&&resource.data.role!='owner'&&request.resource.data.role in ['admin','operator','viewer']&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','expiresAt','updatedAt','updatedBy'])&&(!('expiresAt' in request.resource.data)||request.resource.data.expiresAt==null||request.resource.data.expiresAt is timestamp)&&request.resource.data.updatedBy==request.auth.uid;
+   allow delete: if false;
   }
+  match /devices/{id}{
+   allow read: if activePanelUser()||isOwnDevice(id);
+   allow create: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status=='Pendiente'&&request.resource.data.profileLocked is bool);
+   allow update: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status==resource.data.status&&request.resource.data.profileLocked==true&&(resource.data.profileLocked!=true||(request.resource.data.name==resource.data.name&&request.resource.data.room==resource.data.room)));
+   allow delete: if isAdmin()||isOwner();
+  }
+  match /policies/{id}{
+   allow read: if activePanelUser();
+   allow create: if canOperate()&&request.resource.data.keys().hasOnly(['name','group','notes','createdAt','createdBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.group is string&&request.resource.data.group.size()>0&&request.resource.data.group.size()<=80&&request.resource.data.notes is string&&request.resource.data.notes.size()<=500&&request.resource.data.createdBy==request.auth.uid;
+   allow update: if false;
+   allow delete: if isAdmin()||isOwner();
+  }
+  match /settings/{settingId}{
+   allow read: if settingId in ['globalPolicy','groupPolicies']&&signedIn()&&(isAnonymousDeviceClient()||activePanelUser());
+   allow create,update: if settingId=='globalPolicy'&&canOperate()&&request.resource.data.keys().hasOnly(['mode','whitelist','blacklist','updatedAt','updatedBy'])&&request.resource.data.mode in ['free','block_all','whitelist']&&request.resource.data.whitelist is list&&request.resource.data.whitelist.size()<=50&&request.resource.data.blacklist is list&&request.resource.data.blacklist.size()<=50&&request.resource.data.updatedBy==request.auth.uid;
+   allow create,update: if settingId=='groupPolicies'&&canOperate()&&request.resource.data.keys().hasOnly(['groups','updatedAt','updatedBy'])&&request.resource.data.groups is list&&request.resource.data.groups.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
+   allow delete: if settingId in ['globalPolicy','groupPolicies']&&(isAdmin()||isOwner());
+  }
+ }
 }
