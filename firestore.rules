@@ -23,7 +23,7 @@ service cloud.firestore {
    allow read: if activePanelUser()||isOwnDevice(id);
    allow create: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status=='Pendiente'&&request.resource.data.profileLocked is bool);
    allow update: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status==resource.data.status&&request.resource.data.profileLocked==true&&(resource.data.profileLocked!=true||(request.resource.data.name==resource.data.name&&request.resource.data.room==resource.data.room)));
-   allow delete: if isAdmin()||isOwner();
+   allow delete: if isAdmin();
   }
   match /policies/{id}{
    allow read: if activePanelUser();
@@ -35,7 +35,7 @@ service cloud.firestore {
    allow read: if settingId in ['globalPolicy','groupPolicies']&&signedIn()&&(isAnonymousDeviceClient()||activePanelUser());
    allow create,update: if settingId=='globalPolicy'&&canOperate()&&request.resource.data.keys().hasOnly(['mode','whitelist','blacklist','updatedAt','updatedBy'])&&request.resource.data.mode in ['free','block_all','whitelist']&&request.resource.data.whitelist is list&&request.resource.data.whitelist.size()<=50&&request.resource.data.blacklist is list&&request.resource.data.blacklist.size()<=50&&request.resource.data.updatedBy==request.auth.uid;
    allow create,update: if settingId=='groupPolicies'&&canOperate()&&request.resource.data.keys().hasOnly(['groups','updatedAt','updatedBy'])&&request.resource.data.groups is list&&request.resource.data.groups.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
-   allow delete: if settingId in ['globalPolicy','groupPolicies']&&(isAdmin()||isOwner());
+   allow delete: if settingId in ['globalPolicy','groupPolicies']&&isAdmin();
   }
  }
 }
