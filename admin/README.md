@@ -93,3 +93,7 @@ El rol se obtiene del documento `users/{UID}` de Firestore. Las asignaciones deb
 
 El panel estático se publica desde esta carpeta `admin/`. En Render, configura `admin` como **Publish Directory**. URL del panel configurado: https://extension-2-85.onrender.com/
 
+
+
+### Owner y duración de acceso
+El rol `owner` gestiona los roles `admin`, `operator` y `viewer` de documentos `users/` existentes y puede fijar `expiresAt` (fecha y hora) o quitar la caducidad. No puede asignar ni modificar otros owners. Las reglas de Firestore comprueban la caducidad en cada acceso a datos; el panel también cierra la sesión al vencer.
