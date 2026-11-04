@@ -226,3 +226,5 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - El rol `owner` tiene todas las funciones de `admin`, incluidos los permisos para eliminar dispositivos, perfiles de políticas y configuraciones.
 - Conserva además la gestión de roles y caducidades de usuarios.
 - No puede asignar el rol `owner` a otras cuentas.
+
+**Comprobación funcional (confirmada por el usuario):** se ha probado que el bloqueo offline actúa al apagar el Wi-Fi, que el rol `owner` dispone de todas las funciones previstas y que el botón **Sincronizar** funciona correctamente. El usuario confirma que todo funciona bien en sus pruebas.
