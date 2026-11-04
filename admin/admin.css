@@ -77,11 +77,7 @@ td:first-child{font-weight:750;color:#26334b}
 .policy-card p{font-size:12px;line-height:1.7;margin:10px 0 14px}
 .policy-card .group{display:inline-block;background:#eef1ff;color:#4b5fd2;border-radius:7px;padding:6px 8px;font-size:11px;font-weight:800}
 .notice{border-radius:11px;padding:14px 16px;background:#f0f3ff;border:1px solid #e0e6ff;color:#556486;font-size:11px;line-height:1.7;margin:17px 0 0}
-#auditList{display:grid}
-.audit-item{display:flex;gap:13px;padding:16px 0;border-bottom:1px solid #edf0f5}
-.audit-item:last-child{border-bottom:0}
-.audit-icon{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:11px;background:#edf1ff;color:#4964d9;font-weight:800}
-.audit-item strong{font-size:12px;color:#26334b}
+
 .audit-item p{font-size:11px;margin:5px 0 0;line-height:1.5}
 .audit-item time{display:block;color:#929bad;font-size:10px;margin-top:6px}
 footer{text-align:center;color:#9aa4b5;font-size:11px;padding:12px 0 25px}
