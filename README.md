@@ -7,7 +7,7 @@ Extensión para Chrome basada en Manifest V3 y panel web de administración. Per
 ## Componentes
 
 - **Extensión Chrome**: aplica reglas de navegación, sincroniza el perfil del navegador con Firebase y muestra una página de bloqueo personalizada.
-- **Panel web** (`admin/`): autenticación de administradores, inventario de dispositivos, control web, políticas por aula/grupo, auditoría y exportación CSV.
+- **Panel web** (`admin/`): autenticación de administradores, inventario de dispositivos, control web, políticas por aula/grupo y exportación CSV.
 - **Firestore** (`firestore.rules`): controla qué pueden leer y modificar los perfiles anónimos de la extensión y los usuarios del panel.
 - **API anterior** (`server/`): backend Node.js/SQLite conservado como prototipo independiente.
 
