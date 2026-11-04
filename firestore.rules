@@ -23,7 +23,7 @@ service cloud.firestore {
    allow read: if activePanelUser()||isOwnDevice(id);
    allow create: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status=='Pendiente'&&request.resource.data.profileLocked is bool);
    allow update: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status==resource.data.status&&request.resource.data.profileLocked==true&&(resource.data.profileLocked!=true||(request.resource.data.name==resource.data.name&&request.resource.data.room==resource.data.room)));
-   allow delete: if isAdmin();
+   allow delete: if isAdmin() || isOwner();
   }
   match /policies/{id}{
    allow read: if activePanelUser();
