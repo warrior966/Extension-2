@@ -219,3 +219,10 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se actualiza la versión del manifiesto a 2.2.1.
 
 **Nota:** para que la restricción se aplique en Firebase, hay que publicar la versión actualizada de `firestore.rules` en Firebase Console.
+
+
+## Versión 2.2.2 — permisos completos de admin para owner
+
+- El rol `owner` tiene todas las funciones de `admin`, incluidos los permisos para eliminar dispositivos, perfiles de políticas y configuraciones.
+- Conserva además la gestión de roles y caducidades de usuarios.
+- No puede asignar el rol `owner` a otras cuentas.
