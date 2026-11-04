@@ -188,3 +188,14 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se mantiene una única instancia del escudo, correctamente escalada y alineada junto al nombre y el lema.
 - Se corrigen los dos recursos: `assets/focus-guard-logo.svg` y `admin/assets/focus-guard-logo.svg`.
 - Se actualiza el manifiesto a 2.1.1.
+
+
+## Versión 2.1.2 — retirada del registro de auditoría
+
+- Se elimina del panel la sección de auditoría, su acceso de navegación y el contador de eventos.
+- Se retiran las consultas y escrituras de eventos desde el panel para que las operaciones habituales no generen registros de auditoría.
+- Se elimina de `firestore.rules` el acceso a la colección `audit`.
+- Se actualizan los README para reflejar que el panel ya no ofrece auditoría.
+- Se actualiza el manifiesto a 2.1.2.
+
+**Nota:** los documentos de auditoría que ya existan en Firestore no se borran automáticamente; esta actualización elimina su uso desde el panel y sus permisos definidos en estas reglas.
