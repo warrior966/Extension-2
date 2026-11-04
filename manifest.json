@@ -17,8 +17,8 @@
     "default_title": "Focus Guard",
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "assets/focus-guard-icon.svg",
-      "32": "assets/focus-guard-icon.svg"
+      "16": "assets/focus-guard-icon.png",
+      "32": "assets/focus-guard-icon.png"
     }
   },
   "host_permissions": [
@@ -30,7 +30,7 @@
       "resources": [
         "blocked.html",
         "blocked.js",
-        "assets/focus-guard-icon.svg"
+        "assets/focus-guard-icon.png"
       ],
       "matches": [
         "http://*/*",
@@ -39,9 +39,9 @@
     }
   ],
   "icons": {
-    "16": "assets/focus-guard-icon.svg",
-    "32": "assets/focus-guard-icon.svg",
-    "48": "assets/focus-guard-icon.svg",
-    "128": "assets/focus-guard-icon.svg"
+    "16": "assets/focus-guard-icon.png",
+    "32": "assets/focus-guard-icon.png",
+    "48": "assets/focus-guard-icon.png",
+    "128": "assets/focus-guard-icon.png"
   }
 }
