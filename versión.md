@@ -267,3 +267,15 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 **Privacidad:** el historial guarda URLs completas, que pueden incluir rutas o parámetros de página. Debe informarse a los usuarios de los dispositivos y limitarse el acceso al panel a personal autorizado.
 
 **Pendiente de despliegue y prueba:** publicar las reglas actualizadas de Firestore, recargar la extensión para aceptar el permiso `webNavigation`, y comprobar en un Chromebook que el historial se registra, se limita a 30 entradas y aparece en el panel. También deben probarse los casos de iframe con URL permitida, URL no permitida y HTML insertado.
+
+
+## Versión 2.2.6 — política individual por dispositivo
+
+- Se añade el botón **Política** en cada dispositivo del inventario.
+- Permite configurar Libertad total, Bloqueo total, Lista blanca o Heredar la política del grupo/global.
+- La política individual tiene prioridad sobre la política del aula/grupo y la global.
+- La política de seguridad por falta de conexión continúa teniendo prioridad sobre las políticas remotas.
+- Los campos de política individual solo pueden ser modificados por usuarios autorizados del panel; las extensiones de los dispositivos no pueden cambiarlos.
+- La política se descarga en la sincronización periódica de la extensión.
+
+**Pendiente de despliegue y prueba:** publicar las reglas Firestore actualizadas, esperar a Render, y comprobar en equipos reales los cuatro modos y la prioridad sobre las políticas de grupo y global.
