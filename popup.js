@@ -83,7 +83,7 @@ enabledInput.addEventListener("change", async () => {
 form.addEventListener("submit", async event => {
   event.preventDefault();
   const rawSite = domainInput.value.trim();
-  if (/<\\/?(?:!doctype|html|iframe|script|body|head|div|form|svg)\\b|^<\\s*!/i.test(rawSite)) {
+  if (rawSite.includes("<") && rawSite.includes(">")) {
     message.textContent = "No se admite código HTML en la lista de sitios. Introduce un dominio web.";
     return;
   }
