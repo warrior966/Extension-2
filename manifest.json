@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Focus Guard",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "description": "Identidad visual renovada y control web con políticas por aula y sincronización Firebase.",
   "permissions": [
     "storage",
     "alarms",
     "tabs",
     "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess"
+    "declarativeNetRequestWithHostAccess",
+    "webNavigation"
   ],
   "background": {
     "service_worker": "service-worker.js"
@@ -43,5 +44,19 @@
     "32": "assets/focus-guard-icon.png",
     "48": "assets/focus-guard-icon.png",
     "128": "assets/focus-guard-icon.png"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "iframe-guard.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ]
 }
