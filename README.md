@@ -88,3 +88,10 @@ El panel está preparado para publicarse desde la carpeta `admin/` (por ejemplo,
 ### Roles de acceso al panel
 - `owner`: tiene todas las funciones de `admin`, incluidas las eliminaciones, y además gestiona roles y caducidades de usuarios. No puede asignar el rol `owner` a otras cuentas.
 - `admin`, `operator` y `viewer`: mantienen sus permisos funcionales y pueden tener una fecha de caducidad asignada por el owner.
+
+
+## Panel multi-colegio (versión 3.1.0)
+
+El panel organiza el acceso por niveles: **colegios → clases → dispositivos**. Los roles `admin`, `operator` y `viewer` se asignan por colegio, de modo que una misma cuenta puede tener permisos distintos en cada centro. `general_admin` gestiona todos los colegios y asigna roles de colegio; `owner` también puede crear administradores generales. Ningún usuario puede crear ni modificar otra cuenta owner.
+
+Los datos nuevos se guardan en `schools/{schoolId}`, `schools/{schoolId}/classes/{classId}` y `users/{uid}/schoolRoles/{schoolId}`. Las políticas de navegación se guardan por colegio y clase. Consulta [admin/README.md](admin/README.md) para el procedimiento de migración y despliegue.
