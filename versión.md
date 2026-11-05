@@ -340,3 +340,16 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza `manifest.json` a `4.0.1`.
 
 **Pendiente de prueba:** comprobar en el panel desplegado los cuatro modos, la validación de dominios y el guardado/lectura en Firestore. No se ha probado en un navegador real ni en Chromebooks.
+
+
+## Versión 4.0.2 — edición de cuentas existentes
+
+- Se añade el botón **Editar** a cada cuenta gestionada, excluyendo las cuentas owner.
+- Se pueden modificar la caducidad y el rol asignado al colegio seleccionado sin crear una cuenta Auth duplicada.
+- Se conservan las asignaciones a otros colegios al editar un rol local.
+- El owner puede cambiar el ámbito de una cuenta a administrador general o volver a convertir un administrador general en usuario de colegio; al convertir a administrador general se eliminan sus asignaciones locales.
+- Los administradores generales pueden editar cuentas de colegio, pero no otros administradores generales ni owners.
+- El correo queda bloqueado durante la edición para evitar desincronizar el correo del perfil Firestore con Firebase Authentication. El cambio de contraseña no se ofrece en este formulario.
+- Se actualiza el manifiesto a `4.0.2`.
+
+**Pendiente de prueba:** validar edición de roles, caducidad y cambio de ámbito con cuentas de prueba y reglas Firestore publicadas. No se ha probado en Firebase ni en Chromebooks reales.
