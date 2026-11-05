@@ -15,14 +15,8 @@ Panel web para gestionar perfiles de Chrome, políticas de navegación mediante 
    ```
 
    Como alternativa, copia el contenido de `firestore.rules` en **Firestore → Rules** y pulsa **Publish**. Publicar el archivo en GitHub no publica las reglas en Firebase.
-6. En Authentication, crea una cuenta para el administrador inicial.
-7. Copia el UID de esa cuenta. En Firestore crea un documento en la colección `users` con el ID exactamente igual al UID y estos datos:
-
-   ```json
-   { "role": "admin" }
-   ```
-
-   Los roles válidos son `admin`, `operator` y `viewer`. Asigna roles únicamente a personal autorizado.
+6. En Authentication, crea una cuenta para el owner inicial.
+7. Copia el UID de esa cuenta. En Firestore crea un documento `users/{UID}` con `{ "globalRole": "owner" }`. El owner inicial es la cuenta raíz de gestión; no asignes `owner` a ninguna otra cuenta. Si ya existe un owner antiguo con `role: "owner"`, el panel lo reconoce.
 8. Publica la carpeta `admin/` mediante HTTP/HTTPS. No abras el panel mediante `file://`.
 
 ## Instalar y registrar la extensión
@@ -69,12 +63,7 @@ Si fallan las solicitudes de red o la sincronización, la extensión puede activ
 
 ## Roles del panel
 
-- `admin`: acceso completo, incluida la eliminación de dispositivos, perfiles y configuraciones.
-- `owner`: tiene todas las funciones de `admin`, incluidas las eliminaciones de dispositivos, perfiles y configuraciones, y además gestiona roles y caducidades de usuarios. No puede asignar el rol `owner` a otras cuentas.
-- `operator`: puede consultar y gestionar dispositivos/perfiles.
-- `viewer`: puede consultar dispositivos y perfiles, pero no modificarlos ni consultar auditoría.
-
-El rol se obtiene del documento `users/{UID}` de Firestore. Las asignaciones deben realizarse desde un entorno de confianza.
+El modelo vigente es multi-colegio. Los roles `admin`, `operator` y `viewer` se guardan en `users/{UID}/schoolRoles/{schoolId}` y pueden variar entre colegios. `owner` y `general_admin` son roles globales guardados en `users/{UID}.globalRole`. Consulta la sección **Panel multi-colegio — versión 3.1.0** al final de este documento para ver todos los permisos y el proceso de migración.
 
 ## Identidad y seguridad
 
