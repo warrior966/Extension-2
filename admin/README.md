@@ -98,3 +98,46 @@ El panel estático se publica desde esta carpeta `admin/`. En Render, configura 
 
 ### Owner y duración de acceso
 El rol `owner` gestiona los roles `admin`, `operator` y `viewer` de documentos `users/` existentes y puede fijar `expiresAt` (fecha y hora) o quitar la caducidad. No puede asignar ni modificar otros owners. Las reglas de Firestore comprueban la caducidad en cada acceso a datos; el panel también cierra la sesión al vencer.
+
+
+## Panel multi-colegio — versión 3.1.0
+
+### Estructura de datos
+- `schools/{schoolId}`: colegio (nombre y localidad).
+- `schools/{schoolId}/classes/{classId}`: clases del colegio.
+- `users/{uid}/schoolRoles/{schoolId}`: rol `admin`, `operator` o `viewer` de esa cuenta en ese colegio.
+- `users/{uid}`: datos de cuenta, caducidad opcional y, para cuentas centrales, `globalRole: "owner"` o `globalRole: "general_admin"`.
+- `schools/{schoolId}/settings/navigationPolicy`: política general del colegio, lista negra, lista blanca y excepciones por clase.
+- `schools/{schoolId}/policies/{policyId}`: perfiles documentales del colegio.
+- Los dispositivos llevan `schoolId` y `classId` además del campo `room`, que conserva el nombre de clase utilizado por la extensión.
+
+### Roles
+- **owner**: todos los permisos de administración y gestión central; puede crear administradores generales. No puede crear ni modificar otro owner.
+- **general_admin**: acceso a todos los colegios y sus dispositivos, políticas y clases; puede crear usuarios y asignarles `admin`, `operator` o `viewer` por colegio. No puede crear ni modificar owners ni administradores generales.
+- **admin**: administración completa dentro de cada colegio asignado, incluidas las eliminaciones.
+- **operator**: gestión operativa dentro de cada colegio asignado, sin permisos de eliminación.
+- **viewer**: consulta de los datos del colegio asignado, sin cambios.
+
+Una cuenta puede tener un documento `schoolRoles/{schoolId}` distinto para cada colegio. Si no tiene asignaciones, el panel informa de que no hay colegios asociados.
+
+### Migración de la versión anterior
+1. Publica el contenido actualizado de `firestore.rules` en el proyecto `fidelazion`. Subirlo a GitHub no lo publica en Firebase.
+2. Inicia sesión con el owner existente. El documento antiguo `users/{UID}` con `role: "owner"` se reconoce como owner.
+3. En **Gestión**, crea los colegios y sus clases.
+4. Crea las cuentas nuevas desde Gestión. Para asignar un usuario existente, escribe el mismo correo electrónico registrado en su documento `users/{UID}` y deja vacía la contraseña. Repite el proceso para asignarle otro colegio con otro rol.
+5. Los usuarios antiguos con `role: "admin"`, `"operator"` o `"viewer"` no reciben un colegio automáticamente. Asígnales un colegio desde Gestión si su documento tiene correo electrónico; si no lo tiene, añade el correo o crea la asignación `users/{UID}/schoolRoles/{schoolId}` desde Firebase Console.
+6. Los dispositivos existentes aparecen en **Gestión → Dispositivos sin asignar**. Elige el colegio, escribe el nombre exacto de una clase existente y pulsa **Asignar**. La extensión conserva esos campos en las siguientes sincronizaciones.
+7. Revisa las políticas por colegio y clase y prueba cada rol antes de usar datos reales.
+
+### Cuentas y autenticación
+El panel crea cuentas de correo y contraseña mediante una instancia secundaria de Firebase Authentication para no cerrar la sesión del administrador actual. La creación del documento de usuario y de sus asignaciones se realiza con la sesión del administrador y queda sujeta a las reglas Firestore. Si la creación de Auth termina pero falla la escritura de Firestore, puede quedar una cuenta de Authentication sin perfil; comprueba ambas consolas antes de volver a intentarlo.
+
+### Políticas de navegación
+La prioridad es: **política individual del dispositivo → política de clase → política general del colegio**. La lista negra del colegio se aplica también a las políticas individuales y de clase. Los dispositivos sin asignación de colegio continúan usando el sistema global antiguo hasta que se incorporan a un colegio.
+
+### Despliegue y verificación
+- Publica las nuevas reglas Firestore.
+- Render debe publicar la carpeta `admin/`.
+- Actualiza la extensión a la versión `3.1.0` para incorporar la lectura de políticas por colegio.
+- Prueba acceso de owner, administrador general, admin, operator y viewer; caducidad; cuentas; asignaciones; altas/bajas de colegios y clases; dispositivos antiguos; políticas y lista negra.
+- No se ha probado esta actualización en Firebase ni en Chromebooks reales. No debe considerarse validada hasta completar esas pruebas.
