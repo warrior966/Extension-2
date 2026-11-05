@@ -340,6 +340,13 @@ async function syncRemotePolicy(deviceRoom = "", schoolId = "") {
       selectedPolicy.blacklist = (schoolDoc.fields?.blacklist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
     } catch (error) {
       if (!/NOT_FOUND|not found/i.test(String(error.message))) return false;
+      try {
+        const legacyUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/globalPolicy`;
+        const legacyDoc = await requestJson(legacyUrl, { headers });
+        selectedPolicy.blacklist = (legacyDoc.fields?.blacklist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+      } catch (legacyError) {
+        if (!/NOT_FOUND|not found/i.test(String(legacyError.message))) return false;
+      }
     }
   }
   if (selectedPolicy?.source === "group" && !selectedPolicy.schoolId) {
