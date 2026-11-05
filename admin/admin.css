@@ -120,3 +120,5 @@ body{background:#f4f6fb}.app-header{position:sticky;top:0;z-index:10;display:fle
 
 /* Formulario integrado para la política individual del dispositivo */
 .policy-dialog{width:min(560px,calc(100% - 28px));max-height:calc(100vh - 36px);overflow:auto}.policy-dialog form{display:grid;gap:16px}.policy-dialog .dialog-head{align-items:flex-start}.policy-dialog .eyebrow{margin:0 0 5px}.policy-dialog-intro,.field-hint{font-size:12px;line-height:1.65;color:#738097;margin:0}.policy-dialog textarea{resize:vertical;min-height:110px}.policy-dialog [hidden]{display:none!important}.policy-dialog .form-status{min-height:0}.policy-dialog .dialog-actions{margin-top:2px}
+
+.user-actions{display:flex;align-items:center;gap:9px}.user-actions small{white-space:nowrap}#accountEmail[readonly]{background:#f4f6fa;color:#748096}#accountFormTitle{margin:0 0 2px;font-size:15px}
