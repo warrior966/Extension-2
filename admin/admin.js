@@ -1,369 +1,47 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAHpkWaFwwI-QJWd06Dzkt6kc2tJXSkdA0",
-  authDomain: "fidelazion.firebaseapp.com",
-  projectId: "fidelazion",
-  storageBucket: "fidelazion.firebasestorage.app",
-  messagingSenderId: "999441586006",
-  appId: "1:999441586006:web:bf8a81faa36c045741a8f7"
-};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const $ = id => document.getElementById(id);
-let user = null, role = "viewer", accessExpiresAt = null, accessExpiryTimer = null, devices = [], policies = [], managedUsers = [], groupPolicies = [], navigationPolicy = { mode: "free", whitelist: [], blacklist: [] }, navigationPolicyError = false, groupPolicyError = false, deviceRefreshTimer = null;
-const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const canOperate = () => ["owner","admin","operator"].includes(role);
-const isOwner = () => role === "owner";
-function remainingLabel(date) { const ms=date-Date.now(); if(ms<=0)return "Caducado"; const d=Math.floor(ms/86400000),h=Math.floor(ms%86400000/3600000),m=Math.floor(ms%3600000/60000); return [d?d+" d":null,h?h+" h":null,(!d&&!h)||m?m+" min":null].filter(Boolean).join(" "); }
-function enforceExpiry(){ if(accessExpiresAt && accessExpiresAt.toMillis()<=Date.now()){ if(accessExpiryTimer)clearInterval(accessExpiryTimer); signOut(auth); $("loginError").textContent="Tu tiempo de acceso al panel ha finalizado. Contacta con el owner del panel."; return true;} return false; }
-function updateAccessSummary(){ const card=$("accessTimeCard"); if(!card)return; card.hidden=!accessExpiresAt; if(accessExpiresAt){$("accessTimeRemaining").textContent=remainingLabel(accessExpiresAt.toDate()); if(enforceExpiry())return;} }
-function toast(message) { const el = $("toast"); el.textContent = message; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 2600); }
-function fail(message, err) { console.error(message, err); toast(message); }
-function stats() {
-  $("deviceCount").textContent = devices.length;
-  $("activeCount").textContent = devices.filter(d => d.status === "Activo" && d.lastSeen?.toDate && (Date.now() - d.lastSeen.toDate().getTime()) < 15 * 60 * 1000).length;
-  $("policyCount").textContent = policies.length;
-}
-async function refreshDeviceLocations() {
-  try {
-    const snap = await getDocs(query(collection(db, "devices"), orderBy("name")));
-    devices = snap.docs.map(d => ({id:d.id,...d.data()}));
-    renderDevices();
-  } catch (err) { console.warn("No se pudieron actualizar las URL de los dispositivos:", err); }
-}
-function showDeviceUrl(id) {
-  const device = devices.find(d => d.id === id);
-  const value = String(device?.currentUrl || "");
-  const output = $("currentDeviceUrl"), link = $("openCurrentDeviceUrl");
-  let parsed;
-  try { parsed = new URL(value); } catch {}
-  output.textContent = parsed && ["http:", "https:"].includes(parsed.protocol)
-    ? value : "No hay una URL web disponible. El dispositivo puede estar sin una pestaña web activa o aún no haber sincronizado.";
-  if (parsed && ["http:", "https:"].includes(parsed.protocol)) {
-    link.href = value; link.hidden = false;
-  } else { link.removeAttribute("href"); link.hidden = true; }
-  $("urlDialog").showModal();
-}
-function showDeviceHistory(id) {
-  const device = devices.find(d => d.id === id);
-  const history = Array.isArray(device?.recentUrls) ? device.recentUrls.slice(0, 30) : [];
-  const rows = $("urlHistoryRows");
-  rows.innerHTML = history.map(item => {
-    const value = String(item?.url || "");
-    let parsed;
-    try { parsed = new URL(value); } catch {}
-    if (!parsed || !["http:", "https:"].includes(parsed.protocol)) return "";
-    const date = item.visitedAt?.toDate ? item.visitedAt.toDate().toLocaleString("es-ES") : "Fecha no disponible";
-    return '<tr><td>' + esc(date) + '</td><td><a href="' + esc(value) + '" target="_blank" rel="noopener noreferrer">' + esc(value) + '</a></td></tr>';
-  }).join("");
-  $("emptyUrlHistory").hidden = rows.children.length > 0;
-  $("urlHistoryDialog").showModal();
-}
-function lastSeenLabel(d) {
-  if (!d.lastSeen?.toDate) return "Sin comunicación";
-  return d.lastSeen.toDate().toLocaleString("es-ES");
-}
-function renderDevices() {
-  const term = $("deviceSearch").value.trim().toLocaleLowerCase("es"), status = $("statusFilter").value;
-  const filtered = devices.filter(d => (status === "all" || d.status === status) && [d.name,d.room,d.owner,d.platform,d.id].some(v => String(v || "").toLocaleLowerCase("es").includes(term)));
-  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td>${d.profileLocked === true ? "Bloqueados" : "Desbloqueados"}</td><td><div class="row-actions"><button class="mini-btn" data-view-url="${esc(d.id)}">Ver URL</button><button class="mini-btn" data-view-history="${esc(d.id)}">Últimas 30 URLs</button>${canOperate() ? '<button class="mini-btn" data-device-policy="'+esc(d.id)+'">Política</button><button class="mini-btn" data-toggle-profile-lock="'+esc(d.id)+'">'+(d.profileLocked === true ? "Desbloquear datos" : "Bloquear datos")+'</button><button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${(role === "admin" || isOwner()) ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
-  $("emptyDevices").hidden = filtered.length > 0;
-  stats();
-}
-function renderPolicies() {
-  $("policyList").innerHTML = policies.map(p => `<article class="policy-card"><span class="eyebrow">${esc(p.id)}</span><h3>${esc(p.name)}</h3><div class="group">${esc(p.group)}</div><p>${esc(p.notes || "Sin notas adicionales.")}</p>${(role === "admin" || isOwner()) ? '<button class="mini-btn danger" data-policy-delete="'+esc(p.id)+'">Eliminar perfil</button>' : ''}</article>`).join("") || '<p class="empty">Aún no hay perfiles. Crea uno para documentar una política.</p>';
-  stats();
-}
-async function refresh() {
-  const [ds, ps, policySnap, groupSnap] = await Promise.all([
-    getDocs(query(collection(db, "devices"), orderBy("name"))),
-    getDocs(query(collection(db, "policies"), orderBy("name"))),
-    getDoc(doc(db, "settings", "globalPolicy")).catch(err => { console.warn("No se pudo leer la política global; comprueba las reglas de Firestore.", err); return null; }),
-    getDoc(doc(db, "settings", "groupPolicies")).catch(err => { console.warn("No se pudieron leer las políticas por grupo.", err); return null; })
-  ]);
-  devices = ds.docs.map(d => ({id:d.id,...d.data()}));
-  policies = ps.docs.map(d => ({id:d.id,...d.data()}));
-  navigationPolicyError = !policySnap;
-  if (policySnap?.exists()) {
-    const data = policySnap.data();
-    navigationPolicy = {
-      mode: ["free", "block_all", "whitelist"].includes(data.mode) ? data.mode : "free",
-      whitelist: Array.isArray(data.whitelist) ? data.whitelist.filter(v => typeof v === "string").slice(0, 50) : [],
-      blacklist: Array.isArray(data.blacklist) ? data.blacklist.filter(v => typeof v === "string").slice(0, 50) : []
-    };
-  } else navigationPolicy = { mode: "free", whitelist: [], blacklist: [] };
-  renderNavigationPolicy();
-  groupPolicyError = !groupSnap;
-  groupPolicies = groupSnap?.exists() && Array.isArray(groupSnap.data().groups) ? groupSnap.data().groups.filter(g => g && typeof g.name === "string" && ["free","block_all","whitelist"].includes(g.mode)).map(g => ({name:g.name, mode:g.mode, whitelist:Array.isArray(g.whitelist) ? g.whitelist.filter(v => typeof v === "string").slice(0,50) : []})) : [];
-  renderGroupPolicies();
-  renderDevices(); renderPolicies();
-}
-function renderNavigationPolicy() {
-  const mode = $("navigationMode"), list = $("whitelistDomains"), black = $("blacklistDomains"), save = $("saveNavigationPolicyBtn");
-  if (!mode || !list || !save) return;
-  mode.value = navigationPolicy.mode;
-  list.value = navigationPolicy.whitelist.join("\n");
-  black.value = navigationPolicy.blacklist.join("\n");
-  const canEdit = canOperate();
-  mode.disabled = !canEdit; list.disabled = !canEdit; black.disabled = !canEdit; save.hidden = !canEdit;
-  $("navigationPolicyStatus").textContent = navigationPolicyError
-    ? "No se pudo leer settings/globalPolicy. Publica las reglas actualizadas de firestore.rules antes de guardar o sincronizar la política."
-    : (!canEdit
-      ? "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". Tu rol es de solo lectura."
-      : "Modo actual: " + navigationModeLabel(navigationPolicy.mode) + ". La política se sincroniza con las extensiones cuando se conectan.");
-}
-function navigationModeLabel(mode) {
-  return ({free:"Libertad total",block_all:"Bloqueo total",whitelist:"Lista blanca"})[mode] || "Libertad total";
-}
-function normalizePolicyDomain(value) {
-  let domain = String(value || "").trim().toLowerCase().replace(/^https?:\/\//, "").split(/[/?#]/, 1)[0].replace(/^www\./, "").replace(/\.$/, "");
-  return /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain) ? domain : null;
-}
-function openDevice(d) {
-  $("deviceForm").reset(); $("deviceId").value = d?.id || "";
-  $("deviceName").value = d?.name || ""; $("deviceRoom").value = d?.room || "";
-  $("deviceOwner").value = d?.owner || ""; $("devicePlatform").value = d?.platform || "ChromeOS";
-  $("deviceStatus").value = d?.status || "Activo"; $("deviceDialogTitle").textContent = d ? "Editar equipo" : "Registrar equipo";
-  $("deviceDialog").showModal();
-}
-$("loginForm").addEventListener("submit", async e => {
-  e.preventDefault(); $("loginError").textContent = "";
-  try { await signInWithEmailAndPassword(auth, $("loginEmail").value.trim(), $("loginPassword").value); }
-  catch (err) { console.error(err); $("loginError").textContent = "No se pudo iniciar sesión. Comprueba las credenciales y que Email/Password esté activado en Firebase."; }
-});
-$("logoutBtn").addEventListener("click", () => signOut(auth));
-onAuthStateChanged(auth, async u => {
-  user = u;
-  if (!u) { if(accessExpiryTimer){clearInterval(accessExpiryTimer);accessExpiryTimer=null;} accessExpiresAt=null; if (deviceRefreshTimer) { clearInterval(deviceRefreshTimer); deviceRefreshTimer = null; } $("loginScreen").hidden = false; $("appShell").hidden = true; return; }
-  try {
-    const profile = await getDoc(doc(db, "users", u.uid));
-    const profileData = profile.exists() ? profile.data() : {};
-    const assignedRole = profileData.role || null;
-    accessExpiresAt = profileData.expiresAt || null;
-    if (!["owner","admin","operator","viewer"].includes(assignedRole) || (accessExpiresAt && accessExpiresAt.toMillis() <= Date.now())) {
-      await signOut(auth); $("loginError").textContent = "Cuenta autenticada pero sin rol autorizado. El owner debe autorizar users/"+u.uid+" con role admin, operator o viewer."; return;
-    }
-    role = assignedRole; $("usersNav").hidden = !isOwner(); $("users").hidden = !isOwner(); updateAccessSummary(); if(accessExpiryTimer)clearInterval(accessExpiryTimer); if(accessExpiresAt)accessExpiryTimer=setInterval(updateAccessSummary,30000); $("accountLabel").textContent = (u.email || "Usuario") + " · " + role;
-    $("loginScreen").hidden = true; $("appShell").hidden = false;
-    $("roleNotice").hidden = canOperate(); $("roleNotice").textContent = "Tu rol es de solo lectura.";
-    $("addDeviceBtn").hidden = !canOperate(); $("addPolicyBtn").hidden = !canOperate(); if(isOwner()) await loadManagedUsers();
-    await refresh();
-    if (deviceRefreshTimer) clearInterval(deviceRefreshTimer);
-    deviceRefreshTimer = setInterval(refreshDeviceLocations, 60_000);
-  } catch (err) {
-    console.error("No se pudo verificar el perfil o cargar el panel:", err);
-    $("loginScreen").hidden = false;
-    $("appShell").hidden = true;
-    const detail = err?.code === "permission-denied"
-      ? "Firebase ha bloqueado la lectura. Comprueba que las reglas de Firestore estén publicadas en el proyecto fidelazion."
-      : "No se pudo leer tu perfil de administrador en Firestore. Comprueba la conexión y las reglas de Firestore.";
-    $("loginError").textContent = detail + (err?.code ? " (" + err.code + ")" : "");
-    await signOut(auth).catch(() => {});
-  }
-});
-$("navigationPolicyForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const status = $("navigationPolicyStatus");
-  try {
-    if (!canOperate()) throw new Error("Tu rol no permite cambiar la política de navegación.");
-    const raw = $("whitelistDomains").value.split(/[\r\n,;]+/).map(v => v.trim()).filter(Boolean);
-    const normalized = [...new Set(raw.map(normalizePolicyDomain))];
-    if (normalized.includes(null)) throw new Error("Hay un dominio no válido. Usa un dominio como example.com, sin rutas.");
-    if (normalized.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
-    const blackRaw = $("blacklistDomains").value.split(/[\r\n,;]+/).map(v => v.trim()).filter(Boolean);
-    const blacklist = [...new Set(blackRaw.map(normalizePolicyDomain))];
-    if (blacklist.includes(null)) throw new Error("Hay un dominio no válido en la lista negra.");
-    if (blacklist.length > 50) throw new Error("La lista negra admite un máximo de 50 dominios.");
-    const mode = $("navigationMode").value;
-    if (mode === "whitelist" && normalized.length === 0) throw new Error("Añade al menos un dominio antes de activar la lista blanca.");
-    const payload = { mode, whitelist: normalized, blacklist, updatedAt: serverTimestamp(), updatedBy: user.uid };
-    await setDoc(doc(db, "settings", "globalPolicy"), payload);
-    navigationPolicy = { mode, whitelist: normalized, blacklist };
-    status.textContent = "Política guardada. Las extensiones conectadas la recogerán automáticamente en un máximo aproximado de 1 minuto; también se cerrará la navegación ya abierta que quede bloqueada.";
-    toast("Política de navegación guardada");
-    renderNavigationPolicy();
-    status.textContent = "Política guardada: " + navigationModeLabel(mode) + ". Las extensiones conectadas la recogerán automáticamente en un máximo aproximado de 1 minuto.";
-  } catch (err) {
-    console.error(err);
-    status.textContent = err.message || "No se pudo guardar la política. Comprueba las reglas de Firestore.";
-  }
-});
-
-function renderGroupPolicies() {
-  const list = $("groupPolicyList"), status = $("groupPolicyStatus"), form = $("groupPolicyForm");
-  if (!list || !status || !form) return;
-  const canEdit = canOperate();
-  ["groupPolicyName","groupPolicyMode","groupPolicyWhitelist","saveGroupPolicyBtn"].forEach(id => { $(id).disabled = !canEdit; });
-  status.textContent = groupPolicyError
-    ? "No se pudieron leer las políticas de grupo. Publica las reglas actualizadas de firestore.rules en Firebase Console."
-    : (canEdit ? "Las políticas guardadas se aplicarán a los dispositivos cuyo aula/grupo coincida con el nombre." : "Tu rol es de solo lectura.");
-  list.innerHTML = groupPolicies.map(g => `<article class="policy-card"><span class="eyebrow">AULA / GRUPO</span><h3>${esc(g.name)}</h3><div class="group">${esc(navigationModeLabel(g.mode))}</div><p>${g.mode === "whitelist" ? esc(g.whitelist.join(", ")) : (g.mode === "block_all" ? "Bloquea toda navegación HTTP/HTTPS." : "Permite la navegación web.")}</p>${canEdit ? '<button class="mini-btn" data-group-edit="'+esc(g.name)+'">Editar</button> ' : ''}${(role === "admin" || isOwner()) ? '<button class="mini-btn danger" data-group-delete="'+esc(g.name)+'">Eliminar</button>' : ''}</article>`).join("") || '<p class="empty">Todavía no hay políticas por grupo.</p>';
-}
-async function saveGroupPolicies() {
-  await setDoc(doc(db, "settings", "groupPolicies"), {groups:groupPolicies, updatedAt:serverTimestamp(), updatedBy:user.uid});
-}
-$("groupPolicyForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  try {
-    if (!canOperate()) throw new Error("Tu rol no permite modificar políticas de grupo.");
-    const name = $("groupPolicyName").value.trim();
-    const mode = $("groupPolicyMode").value;
-    const raw = $("groupPolicyWhitelist").value.split(/[\r\n,;]+/).map(v => v.trim()).filter(Boolean);
-    const normalized = [...new Set(raw.map(normalizePolicyDomain))];
-    if (!name) throw new Error("Escribe el nombre del aula o grupo.");
-    if (normalized.includes(null)) throw new Error("Hay un dominio no válido. Usa example.com, sin rutas.");
-    if (normalized.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
-    if (mode === "whitelist" && !normalized.length) throw new Error("Añade al menos un dominio para la lista blanca.");
-    const existing = groupPolicies.findIndex(g => g.name.toLocaleLowerCase("es") === name.toLocaleLowerCase("es"));
-    const group = {name, mode, whitelist:normalized};
-    if (existing >= 0) groupPolicies[existing] = group; else groupPolicies.push(group);
-    await saveGroupPolicies();
-    renderGroupPolicies();
-    $("groupPolicyStatus").textContent = "Política del grupo guardada. Los dispositivos la recibirán en su próxima sincronización.";
-    $("groupPolicyForm").reset();
-    toast("Política del grupo guardada");
-  } catch (err) { console.error(err); $("groupPolicyStatus").textContent = err.message || "No se pudo guardar la política del grupo."; }
-});
-$("groupPolicyList").addEventListener("click", async e => {
-  const edit = e.target.closest("[data-group-edit]"), del = e.target.closest("[data-group-delete]");
-  if (edit) {
-    const g = groupPolicies.find(x => x.name === edit.dataset.groupEdit);
-    if (g) { $("groupPolicyName").value = g.name; $("groupPolicyMode").value = g.mode; $("groupPolicyWhitelist").value = g.whitelist.join("\n"); $("groupPolicyForm").scrollIntoView({behavior:"smooth",block:"center"}); }
-  }
-  if (del) {
-    const name = del.dataset.groupDelete;
-    if (role !== "admin" || !confirm("¿Eliminar la política del grupo " + name + "?")) return;
-    try { groupPolicies = groupPolicies.filter(g => g.name !== name); await saveGroupPolicies(); renderGroupPolicies(); toast("Política de grupo eliminada"); }
-    catch (err) { fail("No se pudo eliminar la política del grupo.", err); }
-  }
-});
-
-$("addDeviceBtn").addEventListener("click", () => openDevice(null));
-$("deviceSearch").addEventListener("input", renderDevices);
-$("statusFilter").addEventListener("change", renderDevices);
-$("deviceRows").addEventListener("click", async e => {
-  const devicePolicyButton = e.target.closest("[data-device-policy]");
-  if (devicePolicyButton) {
-    const d = devices.find(x => x.id === devicePolicyButton.dataset.devicePolicy);
-    if (d) {
-      $("devicePolicyForm").reset();
-      $("devicePolicyId").value = d.id;
-      $("devicePolicyTitle").textContent = "Política: " + d.name;
-      $("devicePolicyMode").value = ["inherit","free","block_all","whitelist"].includes(d.policyMode) ? d.policyMode : "inherit";
-      $("devicePolicyWhitelist").value = Array.isArray(d.policyWhitelist) ? d.policyWhitelist.join("\n") : "";
-      $("devicePolicyStatus").textContent = "";
-      $("devicePolicyDialog").showModal();
-    }
-    return;
-  }
-  const viewHistory = e.target.closest("[data-view-history]");
-  if (viewHistory) { showDeviceHistory(viewHistory.dataset.viewHistory); return; }
-  const viewUrl = e.target.closest("[data-view-url]");
-  if (viewUrl) { showDeviceUrl(viewUrl.dataset.viewUrl); return; }
-  const toggleLock = e.target.closest("[data-toggle-profile-lock]");
-  if (toggleLock) {
-    const d = devices.find(x => x.id === toggleLock.dataset.toggleProfileLock);
-    if (!d || !canOperate()) return;
-    const nextLocked = d.profileLocked !== true;
-    const action = nextLocked ? "bloquear" : "desbloquear";
-    if (!confirm("¿Quieres "+action+" el nombre y aula/grupo de este perfil?")) return;
-    try {
-      await setDoc(doc(db, "devices", d.id), {profileLocked:nextLocked,updatedAt:serverTimestamp(),updatedBy:user.uid}, {merge:true});
-      await refresh(); toast(nextLocked ? "Datos bloqueados" : "Datos desbloqueados");
-    } catch (err) { fail("No se pudieron cambiar los permisos de edición del perfil.", err); }
-    return;
-  }
-  const edit = e.target.closest("[data-edit]"), del = e.target.closest("[data-delete]");
-  if (edit) { const d = devices.find(x => x.id === edit.dataset.edit); if (d) openDevice(d); }
-  if (del) {
-    const d = devices.find(x => x.id === del.dataset.delete);
-    if (d && confirm("¿Eliminar el registro "+d.name+"? No afecta al equipo real.")) try {
-      await deleteDoc(doc(db, "devices", d.id)); await refresh(); toast("Registro eliminado");
-    } catch (err) { fail("No se pudo eliminar el registro. Comprueba los permisos.", err); }
-  }
-});
-$("devicePolicyForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const status = $("devicePolicyStatus");
-  try {
-    if (!canOperate()) throw new Error("Tu rol no permite modificar políticas.");
-    const id = $("devicePolicyId").value;
-    const mode = $("devicePolicyMode").value;
-    const raw = $("devicePolicyWhitelist").value.split(/[\\r\\n,;]+/).map(v => v.trim()).filter(Boolean);
-    const whitelist = [...new Set(raw.map(normalizePolicyDomain))];
-    if (whitelist.includes(null)) throw new Error("Hay un dominio no válido. Usa example.com, sin rutas.");
-    if (whitelist.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
-    if (mode === "whitelist" && whitelist.length === 0) throw new Error("Añade al menos un dominio para la lista blanca.");
-    await setDoc(doc(db, "devices", id), {
-      policyMode: mode,
-      policyWhitelist: mode === "whitelist" ? whitelist : [],
-      updatedAt: serverTimestamp(),
-      updatedBy: user.uid
-    }, {merge:true});
-    $("devicePolicyDialog").close();
-    await refresh();
-    toast("Política individual guardada");
-  } catch (err) {
-    console.error(err);
-    status.textContent = err.message || "No se pudo guardar la política del dispositivo.";
-  }
-});
-$("deviceForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  try {
-    if (!canOperate()) throw new Error("Tu rol no permite modificar equipos.");
-    const oldId = $("deviceId").value, id = oldId || "FG-"+crypto.randomUUID().slice(0,8).toUpperCase();
-    const d = {name:$("deviceName").value.trim(),room:$("deviceRoom").value.trim(),owner:$("deviceOwner").value.trim(),platform:$("devicePlatform").value,status:$("deviceStatus").value,updatedAt:serverTimestamp(),updatedBy:user.uid};
-    if (!d.name || !d.room) return;
-    await setDoc(doc(db, "devices", id), d, {merge:true});
-    $("deviceDialog").close(); await refresh(); toast("Equipo guardado");
-  } catch (err) { fail(err.message || "No se pudo guardar el equipo.", err); }
-});
-$("addPolicyBtn").addEventListener("click", () => { $("policyForm").reset(); $("policyDialog").showModal(); });
-$("policyForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  try {
-    if (!canOperate()) throw new Error("Tu rol no permite crear perfiles.");
-    const p = {name:$("policyName").value.trim(),group:$("policyGroup").value.trim(),notes:$("policyNotes").value.trim(),createdAt:serverTimestamp(),createdBy:user.uid};
-    if (!p.name || !p.group) return;
-    await addDoc(collection(db, "policies"), p); $("policyDialog").close(); await refresh(); toast("Perfil creado");
-  } catch (err) { fail(err.message || "No se pudo crear el perfil.", err); }
-});
-$("policyList").addEventListener("click", async e => {
-  const b = e.target.closest("[data-policy-delete]"); if (!b) return;
-  const p = policies.find(x => x.id === b.dataset.policyDelete);
-  if (p && confirm("¿Eliminar este perfil?")) try { await deleteDoc(doc(db, "policies", p.id)); await refresh(); toast("Perfil eliminado"); }
-  catch (err) { fail("No se pudo eliminar el perfil.", err); }
-});
-document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => $(b.dataset.close).close()));
-$("exportBtn").addEventListener("click", () => {
-  const cols = ["id","name","room","owner","platform","status"];
-  const csv = [cols.join(","), ...devices.map(d => cols.map(k => '"'+String(d[k] ?? "").replace(/"/g,'""')+'"').join(","))].join("\r\n");
-  const url = URL.createObjectURL(new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"}));
-  const a = document.createElement("a"); a.href = url; a.download = "focus-guard-inventario.csv"; a.click(); URL.revokeObjectURL(url);
-});
-
-async function loadManagedUsers(){
- const snap=await getDocs(collection(db,"users"));
- managedUsers=snap.docs.map(d=>({uid:d.id,...d.data()})).filter(x=>x.role!=="owner");
- $("managedUsersList").innerHTML=managedUsers.map(x=>'<article class="policy-card"><span class="eyebrow">'+esc(x.uid)+'</span><h3>'+esc(x.email||"Usuario")+'</h3><div class="group">'+esc(x.role||"Sin rol")+'</div><p>'+(x.expiresAt?.toDate?"Acceso hasta: "+esc(x.expiresAt.toDate().toLocaleString("es-ES")):"Sin fecha de caducidad")+'</p></article>').join("")||'<p class="empty">No hay usuarios gestionables.</p>';
-}
-$("userAccessForm").addEventListener("submit",async e=>{
- e.preventDefault();const status=$("userAccessStatus");try{
- if(!isOwner())throw new Error("Solo el owner puede gestionar usuarios.");
- const uid=$("managedUserUid").value.trim(),newRole=$("managedUserRole").value,raw=$("managedUserExpires").value;
- if(!uid||uid===user.uid)throw new Error("Indica el UID de otra cuenta.");
- const ref=doc(db,"users",uid),snap=await getDoc(ref);
- if(!snap.exists())throw new Error("No existe users/"+uid+". Crea primero la cuenta y su documento de usuario.");
- if(snap.data().role==="owner")throw new Error("No puedes modificar ni asignar el rol owner.");
- const expiresAt=raw?new Date(raw):null;
- if(raw&&(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()))throw new Error("La fecha debe estar en el futuro.");
- await setDoc(ref,{role:newRole,expiresAt:expiresAt?expiresAt:null,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});
- status.textContent="Acceso actualizado correctamente."; $("userAccessForm").reset();await loadManagedUsers();
- }catch(err){status.textContent=err.message||"No se pudo actualizar el usuario.";}
-});
-$("accessTimeInfoBtn").addEventListener("click",()=>$("accessInfoDialog").showModal());
+import {initializeApp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut,createUserWithEmailAndPassword} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import {getFirestore,collection,collectionGroup,doc,getDoc,getDocs,setDoc,addDoc,deleteDoc,query,where,serverTimestamp} from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+const config={apiKey:"AIzaSyAHpkWaFwwI-QJWd06Dzkt6kc2tJXSkdA0",authDomain:"fidelazion.firebaseapp.com",projectId:"fidelazion",storageBucket:"fidelazion.firebasestorage.app",messagingSenderId:"999441586006",appId:"1:999441586006:web:bf8a81faa36c045741a8f7"};
+const app=initializeApp(config),auth=getAuth(app),db=getFirestore(app),accountApp=initializeApp(config,"focusGuardAccountCreator"),accountAuth=getAuth(accountApp),$=id=>document.getElementById(id);
+let user=null,profile={},globalRole="",expiresAt=null,schoolRoles={},schools=[],classes=[],devices=[],selectedSchool=null,selectedClass=null,deviceTimer=null;
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isOwner=()=>globalRole==="owner",isGeneral=()=>["owner","general_admin"].includes(globalRole),roleFor=id=>isGeneral()?"admin":(schoolRoles[id]||"viewer"),canOperate=id=>["admin","operator"].includes(roleFor(id))||isGeneral(),canDelete=id=>roleFor(id)==="admin"||isGeneral();
+function notify(s){$("toast").textContent=s;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
+function showScreen(id){document.querySelectorAll(".screen").forEach(x=>x.hidden=true);$(id).hidden=false;updateBreadcrumb()}
+function updateBreadcrumb(){const parts=['<button data-home>Mis colegios</button>'];if(selectedSchool)parts.push('<span>›</span><button data-school>'+esc(selectedSchool.name)+'</button>');if(selectedClass)parts.push('<span>›</span><b>'+esc(selectedClass.name)+'</b>');$("breadcrumb").innerHTML=parts.join("");}
+function timeLeft(){if(!expiresAt)return "";const ms=expiresAt.toDate().getTime()-Date.now();if(ms<=0)return "Acceso caducado";const d=Math.floor(ms/86400000),h=Math.floor(ms%86400000/3600000);return "Acceso: "+(d?d+" d ":"")+h+" h restantes";}
+function checkExpiry(){if(expiresAt&&expiresAt.toMillis()<=Date.now()){signOut(auth);$("loginError").textContent="Tu acceso ha caducado. Contacta con el administrador.";return true}return false}
+async function loadProfile(u){const snap=await getDoc(doc(db,"users",u.uid));if(!snap.exists())throw new Error("Tu cuenta todavía no está autorizada.");profile=snap.data();globalRole=profile.globalRole||(profile.role==="owner"?"owner":"");expiresAt=profile.expiresAt||null;if(!["owner","general_admin"].includes(globalRole)){const rs=await getDocs(collection(db,"users",u.uid,"schoolRoles"));schoolRoles={};rs.forEach(d=>{if(["admin","operator","viewer"].includes(d.data().role))schoolRoles[d.id]=d.data().role});}else schoolRoles={};if(!["owner","general_admin"].includes(globalRole)&&Object.keys(schoolRoles).length===0&&profile.role==="owner")globalRole="owner";if(!isGeneral()&&Object.keys(schoolRoles).length===0){}if(expiresAt&&expiresAt.toMillis()<=Date.now())throw new Error("Tu acceso ha caducado. Contacta con el administrador.");}
+async function loadSchools(){const snap=await getDocs(collection(db,"schools"));const all=snap.docs.map(d=>({id:d.id,...d.data()}));schools=isGeneral()?all:all.filter(s=>schoolRoles[s.id]);renderSchools();}
+function renderSchools(){$("schoolGrid").innerHTML=schools.map(s=>'<button class="school-card" data-open-school="'+esc(s.id)+'"><span class="school-symbol">⌂</span><strong>'+esc(s.name)+'</strong><small>'+esc(s.location||"Centro educativo")+'</small><span class="school-role">'+esc(isGeneral()?"Administrador general":schoolRoles[s.id])+'</span></button>').join("");$("noSchools").hidden=schools.length>0;$("managementBtn").hidden=!isGeneral();}
+async function openSchool(id){selectedSchool=schools.find(s=>s.id===id)||null;if(!selectedSchool)return;selectedClass=null;const snap=await getDocs(collection(db,"schools",id,"classes"));classes=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name,"es"));$("classSchoolName").textContent=selectedSchool.name;$("classGrid").innerHTML=classes.map(c=>'<button class="class-card" data-open-class="'+esc(c.id)+'"><span>▦</span><strong>'+esc(c.name)+'</strong><small>Ver dispositivos</small></button>').join("");$("noClasses").hidden=classes.length>0;showScreen("classScreen");}
+async function openClass(id){selectedClass=classes.find(c=>c.id===id)||null;if(!selectedClass)return;$("deviceSchoolName").textContent=selectedSchool.name;$("deviceClassName").textContent=selectedClass.name;$("addDeviceBtn").hidden=!canOperate(selectedSchool.id);await loadDevices();showScreen("deviceScreen");if(deviceTimer)clearInterval(deviceTimer);deviceTimer=setInterval(loadDevices,60000);}
+async function loadDevices(){if(!selectedSchool||!selectedClass)return;try{let q=query(collection(db,"devices"),where("schoolId","==",selectedSchool.id),where("classId","==",selectedClass.id));const snap=await getDocs(q);devices=snap.docs.map(d=>({id:d.id,...d.data()}));renderDevices()}catch(e){console.error(e);$("emptyDevices").hidden=false;$("emptyDevices").textContent="No se pudieron cargar los dispositivos. Comprueba las reglas de Firestore."}}
+function dateLabel(x){return x?.toDate?x.toDate().toLocaleString("es-ES"):"Sin comunicación"}
+function renderDevices(){const term=$("deviceSearch").value.toLocaleLowerCase("es"),status=$("statusFilter").value;const list=devices.filter(d=>(status==="all"||d.status===status)&&[d.name,d.room,d.owner,d.id].some(v=>String(v||"").toLocaleLowerCase("es").includes(term)));$("deviceRows").innerHTML=list.map(d=>'<tr><td><strong>'+esc(d.name)+'</strong><small class="subcell">'+esc(d.id)+'</small></td><td>'+esc(d.owner||"—")+'</td><td>'+esc(d.platform||"—")+'</td><td>'+esc(dateLabel(d.lastSeen))+'</td><td><span class="state '+esc(d.status)+'">'+esc(d.status||"Pendiente")+'</span></td><td><div class="row-actions"><button class="mini-btn" data-url="'+esc(d.id)+'">URL</button><button class="mini-btn" data-history="'+esc(d.id)+'">Historial</button>'+(canOperate(selectedSchool.id)?'<button class="mini-btn" data-edit-device="'+esc(d.id)+'">Editar</button><button class="mini-btn" data-lock="'+esc(d.id)+'">'+(d.profileLocked?"Desbloquear":"Bloquear")+'</button><button class="mini-btn" data-policy="'+esc(d.id)+'">Política</button>':'')+(canDelete(selectedSchool.id)?'<button class="mini-btn danger" data-delete-device="'+esc(d.id)+'">Eliminar</button>':'')+'</div></td></tr>').join("");$("emptyDevices").hidden=list.length>0;}
+function openDevice(d){$("deviceForm").reset();$("deviceId").value=d?.id||"";$("deviceName").value=d?.name||"";$("deviceRoom").value=d?.room||selectedClass.name;$("deviceOwner").value=d?.owner||"";$("devicePlatform").value=d?.platform||"ChromeOS";$("deviceStatus").value=d?.status||"Activo";$("deviceDialogTitle").textContent=d?"Editar dispositivo":"Añadir dispositivo";$("deviceDialog").showModal();}
+function showUrl(d){let u;try{u=new URL(d.currentUrl)}catch{}const ok=u&&["http:","https:"].includes(u.protocol);$("currentDeviceUrl").textContent=ok?d.currentUrl:"No hay una URL web disponible.";const a=$("openCurrentDeviceUrl");a.hidden=!ok;if(ok)a.href=d.currentUrl;else a.removeAttribute("href");$("urlDialog").showModal();}
+function showHistory(d){const arr=Array.isArray(d.recentUrls)?d.recentUrls.slice(0,30):[];$("historyRows").innerHTML=arr.map(x=>{let u;try{u=new URL(x.url)}catch{}if(!u||!["http:","https:"].includes(u.protocol))return "";return '<tr><td>'+esc(x.visitedAt?.toDate?x.visitedAt.toDate().toLocaleString("es-ES"):"—")+'</td><td><a target="_blank" rel="noopener noreferrer" href="'+esc(x.url)+'">'+esc(x.url)+'</a></td></tr>'}).join("");$("historyEmpty").hidden=arr.length>0;$("historyDialog").showModal();}
+async function loadManagement(){if(!isGeneral())return;await loadSchools();$("managedSchools").innerHTML=schools.map(s=>'<div class="management-row"><span><strong>'+esc(s.name)+'</strong><small>'+esc(s.location||"")+'</small></span><span><button class="mini-btn" data-school-edit="'+esc(s.id)+'">Editar</button><button class="mini-btn danger" data-school-delete="'+esc(s.id)+'">Eliminar</button></span></div>').join("")||'<p class="muted">Todavía no hay colegios.</p>';$("accountSchool").innerHTML=schools.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join("");$("classManagementSchool").innerHTML=schools.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join("");await loadManagedUsers();await loadManagedClasses();}
+async function loadManagedUsers(){const snap=await getDocs(collection(db,"users"));const rows=[];for(const d of snap.docs){if(d.id===user.uid)continue;const p=d.data();const sub=await getDocs(collection(db,"users",d.id,"schoolRoles"));const assignments=sub.docs.map(x=>{const s=schools.find(y=>y.id===x.id);return (s?.name||"Colegio eliminado")+": "+x.data().role});rows.push({uid:d.id,email:p.email||"Cuenta",globalRole:p.globalRole||"",expiresAt:p.expiresAt,assignments});}const visible=rows.filter(x=>x.globalRole!=="owner");$("managedUsers").innerHTML=visible.map(x=>'<div class="management-row user-row"><span><strong>'+esc(x.email)+'</strong><small>'+esc(x.globalRole||"Usuario de colegio")+' · '+esc(x.assignments.join(" / ")||"Sin colegios")+'</small></span><small>'+esc(x.expiresAt?.toDate?x.expiresAt.toDate().toLocaleDateString("es-ES"):"Sin caducidad")+'</small></div>').join("")||'<p class="muted">No hay otras cuentas registradas.</p>';}
+async function loadManagedClasses(){const sid=$("classManagementSchool").value;if(!sid){$("managedClasses").innerHTML='<p class="muted">Crea primero un colegio.</p>';return}const snap=await getDocs(collection(db,"schools",sid,"classes"));const rows=snap.docs.map(d=>({id:d.id,...d.data()}));$("managedClasses").innerHTML=rows.map(c=>'<div class="management-row"><strong>'+esc(c.name)+'</strong><span><button class="mini-btn" data-class-edit="'+esc(c.id)+'">Editar</button><button class="mini-btn danger" data-class-delete="'+esc(c.id)+'">Eliminar</button></span></div>').join("")||'<p class="muted">No hay clases creadas.</p>';}
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();$("loginError").textContent="";try{await signInWithEmailAndPassword(auth,$("loginEmail").value.trim(),$("loginPassword").value)}catch(err){$("loginError").textContent="No se pudo iniciar sesión. Comprueba tus credenciales."}});
+$("logoutBtn").addEventListener("click",()=>signOut(auth));$("homeBtn").addEventListener("click",e=>{e.preventDefault();selectedSchool=null;selectedClass=null;if(deviceTimer)clearInterval(deviceTimer);showScreen("schoolScreen")});
+$("managementBtn").addEventListener("click",async()=>{await loadManagement();showScreen("managementScreen")});$("backManagement").addEventListener("click",()=>showScreen("schoolScreen"));$("backSchools").addEventListener("click",()=>{selectedSchool=null;showScreen("schoolScreen")});$("backClasses").addEventListener("click",()=>{selectedClass=null;if(deviceTimer)clearInterval(deviceTimer);showScreen("classScreen")});
+$("schoolGrid").addEventListener("click",e=>{const b=e.target.closest("[data-open-school]");if(b)openSchool(b.dataset.openSchool).catch(console.error)});$("classGrid").addEventListener("click",e=>{const b=e.target.closest("[data-open-class]");if(b)openClass(b.dataset.openClass).catch(console.error)});
+$("breadcrumb").addEventListener("click",e=>{if(e.target.closest("[data-home]")){$("homeBtn").click()}else if(e.target.closest("[data-school]"))$("backClasses").click()});
+$("deviceSearch").addEventListener("input",renderDevices);$("statusFilter").addEventListener("change",renderDevices);$("addDeviceBtn").addEventListener("click",()=>openDevice(null));
+$("deviceRows").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const d=devices.find(x=>x.id===Object.values(b.dataset)[0]);if(!d)return;try{if(b.dataset.url)showUrl(d);else if(b.dataset.history)showHistory(d);else if(b.dataset.editDevice)openDevice(d);else if(b.dataset.lock){await setDoc(doc(db,"devices",d.id),{profileLocked:d.profileLocked!==true,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});await loadDevices();notify("Perfil actualizado")}else if(b.dataset.deleteDevice&&confirm("¿Eliminar el registro "+d.name+"?")){await deleteDoc(doc(db,"devices",d.id));await loadDevices();notify("Dispositivo eliminado")}else if(b.dataset.policy){const mode=prompt("Modo: inherit, free, block_all o whitelist",d.policyMode||"inherit");if(!mode)return;if(!["inherit","free","block_all","whitelist"].includes(mode))throw Error("Modo no válido");let wl=[];if(mode==="whitelist"){wl=(prompt("Dominios permitidos separados por comas", (d.policyWhitelist||[]).join(", "))||"").split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean);if(!wl.length)throw Error("La lista blanca no puede estar vacía")}await setDoc(doc(db,"devices",d.id),{policyMode:mode,policyWhitelist:wl,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});await loadDevices();notify("Política individual guardada")}}catch(err){console.error(err);notify(err.message||"No se pudo completar la operación")}});
+$("deviceForm").addEventListener("submit",async e=>{e.preventDefault();try{const old=$("deviceId").value,id=old||"FG-"+crypto.randomUUID().slice(0,8).toUpperCase();const payload={name:$("deviceName").value.trim(),room:$("deviceRoom").value.trim(),owner:$("deviceOwner").value.trim(),platform:$("devicePlatform").value,status:$("deviceStatus").value,schoolId:selectedSchool.id,classId:selectedClass.id,updatedAt:serverTimestamp(),updatedBy:user.uid};await setDoc(doc(db,"devices",id),payload,{merge:true});$("deviceDialog").close();await loadDevices();notify("Dispositivo guardado")}catch(err){notify(err.message||"No se pudo guardar el dispositivo")}});
+$("exportBtn").addEventListener("click",()=>{const cols=["id","name","room","owner","platform","status"];const csv=[cols.join(","),...devices.map(d=>cols.map(k=>'"'+String(d[k]??"").replace(/"/g,'""')+'"').join(","))].join("\r\n");const url=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="focus-guard-"+selectedSchool.id+"-"+selectedClass.name+".csv";a.click();URL.revokeObjectURL(url)});
+$("schoolForm").addEventListener("submit",async e=>{e.preventDefault();try{const id=$("schoolId").value||("school-"+crypto.randomUUID());const payload={name:$("schoolName").value.trim(),location:$("schoolLocation").value.trim(),updatedAt:serverTimestamp(),updatedBy:user.uid};await setDoc(doc(db,"schools",id),payload,{merge:true});$("schoolForm").reset();$("schoolId").value="";$("cancelSchoolEdit").hidden=true;await loadManagement();notify("Colegio guardado")}catch(err){notify(err.message||"No se pudo guardar el colegio")}});
+$("managedSchools").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const s=schools.find(x=>x.id===(b.dataset.schoolEdit||b.dataset.schoolDelete));if(!s)return;if(b.dataset.schoolEdit){$("schoolId").value=s.id;$("schoolName").value=s.name;$("schoolLocation").value=s.location||"";$("cancelSchoolEdit").hidden=false}else if(b.dataset.schoolDelete&&confirm("¿Eliminar el colegio "+s.name+"? Debes eliminar antes sus clases y reasignar sus dispositivos.")){const cs=await getDocs(collection(db,"schools",s.id,"classes"));if(!cs.empty){notify("Elimina primero todas las clases del colegio.");return}const ds=await getDocs(query(collection(db,"devices"),where("schoolId","==",s.id)));if(!ds.empty){notify("Reasigna o elimina primero los dispositivos del colegio.");return}await deleteDoc(doc(db,"schools",s.id));await loadManagement();notify("Colegio eliminado")}});
+$("cancelSchoolEdit").addEventListener("click",()=>$("schoolForm").reset());
+$("classManagementSchool").addEventListener("change",loadManagedClasses);
+$("classForm").addEventListener("submit",async e=>{e.preventDefault();const sid=$("classManagementSchool").value;if(!sid)return;try{const id=$("classId").value||("class-"+crypto.randomUUID());await setDoc(doc(db,"schools",sid,"classes",id),{name:$("className").value.trim(),updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});$("classForm").reset();$("classId").value="";$("cancelClassEdit").hidden=true;await loadManagedClasses();notify("Clase guardada")}catch(err){notify(err.message||"No se pudo guardar la clase")}});
+$("managedClasses").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const sid=$("classManagementSchool").value;if(b.dataset.classEdit){const s=await getDoc(doc(db,"schools",sid,"classes",b.dataset.classEdit));if(s.exists()){$("classId").value=s.id;$("className").value=s.data().name;$("cancelClassEdit").hidden=false}}else if(b.dataset.classDelete&&confirm("¿Eliminar esta clase?")){const ds=await getDocs(query(collection(db,"devices"),where("schoolId","==",sid),where("classId","==",b.dataset.classDelete)));if(!ds.empty){notify("Reasigna o elimina los dispositivos de esta clase primero.");return}await deleteDoc(doc(db,"schools",sid,"classes",b.dataset.classDelete));await loadManagedClasses();notify("Clase eliminada")}});
+$("cancelClassEdit").addEventListener("click",()=>{$("classForm").reset();$("classId").value="";$("cancelClassEdit").hidden=true});
+$("accountType").addEventListener("change",()=>{$("schoolAssignmentFields").hidden=$("accountType").value==="general_admin"});
+$("accountForm").addEventListener("submit",async e=>{e.preventDefault();const status=$("accountStatus");status.textContent="";try{if(!isGeneral())throw Error("No tienes permisos para crear cuentas.");const email=$("accountEmail").value.trim().toLowerCase(),password=$("accountPassword").value,kind=$("accountType").value,expiry=$("accountExpiry").value;let expires=null;if(expiry){expires=new Date(expiry);if(expires.getTime()<=Date.now())throw Error("La caducidad debe estar en el futuro.")}const existing=await getDocs(query(collection(db,"users"),where("email","==",email)));let uid;if(!existing.empty){uid=existing.docs[0].id;if(password)throw Error("Esta cuenta ya existe. Deja la contraseña vacía para asignarle un colegio o cambiar su ámbito.");if(existing.docs[0].data().globalRole==="owner")throw Error("No puedes modificar una cuenta owner.");}else{if(!password||password.length<6)throw Error("Indica una contraseña inicial de al menos 6 caracteres.");if(kind==="general_admin"&&!isOwner())throw Error("Solo el owner puede crear administradores generales.");const cred=await createUserWithEmailAndPassword(accountAuth,email,password);uid=cred.user.uid;await signOut(accountAuth);}if(kind==="general_admin"){if(!isOwner())throw Error("Solo el owner puede asignar administradores generales.");await setDoc(doc(db,"users",uid),{email,globalRole:"general_admin",expiresAt:expires,createdAt:serverTimestamp(),createdBy:user.uid},{merge:true})}else{const sid=$("accountSchool").value;if(!sid)throw Error("Crea primero un colegio.");await setDoc(doc(db,"users",uid),{email,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});await setDoc(doc(db,"users",uid,"schoolRoles",sid),{role:$("accountSchoolRole").value,schoolId:sid,updatedAt:serverTimestamp(),updatedBy:user.uid});if(expires)await setDoc(doc(db,"users",uid),{expiresAt:expires},{merge:true});}status.textContent="Cuenta y permisos guardados correctamente."; $("accountForm").reset();$("accountType").value="school";$("schoolAssignmentFields").hidden=false;await loadManagedUsers();}catch(err){console.error(err);status.textContent=err.message||"No se pudo crear la cuenta. Si Auth ya creó la cuenta, comprueba si falta su documento users/UID."}});
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>$(b.dataset.close).close()));
+onAuthStateChanged(auth,async u=>{user=u;if(!u){if(deviceTimer)clearInterval(deviceTimer);$("loginScreen").hidden=false;$("appShell").hidden=true;return}try{await loadProfile(u);if(checkExpiry())return;$("accountLabel").textContent=(u.email||"Cuenta")+" · "+(isOwner()?"owner":isGeneral()?"admin general":"usuario de colegio");$("accessTime").hidden=!expiresAt;$("accessTime").textContent=timeLeft();$("loginScreen").hidden=true;$("appShell").hidden=false;await loadSchools();showScreen("schoolScreen");if(isGeneral())await loadManagement()}catch(err){$("loginError").textContent=err.message||"No se pudo verificar tu cuenta.";await signOut(auth).catch(()=>{})}});
