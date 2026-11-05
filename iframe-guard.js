@@ -1,12 +1,12 @@
 (() => {
   "use strict";
 
-  const INLINE_HTML = /^\\s*(?:<!doctype\\s+html|<html(?:\\s|>)|<(?:script|iframe|body|head|div|form|svg|section|article)(?:\\s|>|\\/))/i;
+  const INLINE_HTML = /^\s*(?:<!doctype\s+html|<html(?:\s|>)|<(?:script|iframe|body|head|div|form|svg|section|article)(?:\s|>|\/))/i;
 
   function isInlineHtmlFrame(frame) {
     if (frame.hasAttribute("srcdoc")) return true;
     const src = (frame.getAttribute("src") || "").trim();
-    return /^data:text\\/html(?:[;,]|$)/i.test(src) || INLINE_HTML.test(src);
+    return /^data:text\/html(?:[;,]|$)/i.test(src) || INLINE_HTML.test(src);
   }
 
   function blockInlineHtmlFrame(frame) {
