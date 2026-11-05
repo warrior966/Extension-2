@@ -255,6 +255,21 @@ async function syncRemotePolicy(deviceRoom = "") {
   const headers = { "Authorization": `Bearer ${session.idToken}` };
   let selectedPolicy = null;
   try {
+    const deviceUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
+    const deviceDoc = await requestJson(deviceUrl, { headers });
+    const fields = deviceDoc.fields || {};
+    const mode = fields.policyMode?.stringValue || "inherit";
+    if (["free", "block_all", "whitelist"].includes(mode)) {
+      const whitelist = (fields.policyWhitelist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+      selectedPolicy = { mode, whitelist, blacklist: [], source: "device" };
+    }
+  } catch (error) {
+    if (!/NOT_FOUND|not found/i.test(String(error.message))) {
+      console.warn("Focus Guard could not sync device-specific policy:", error.message);
+      return false;
+    }
+  }
+  if (!selectedPolicy) try {
     const groupsUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/groupPolicies`;
     const groupDoc = await requestJson(groupsUrl, { headers });
     const groupValues = groupDoc.fields?.groups?.arrayValue?.values || [];
