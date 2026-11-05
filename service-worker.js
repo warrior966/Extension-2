@@ -206,7 +206,7 @@ async function syncDevice(overrides = {}) {
     headers: { "Authorization": `Bearer ${session.idToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ fields })
   });
-  return { uid: session.uid, name, room, lastSeen: now, currentUrl, profileLocked: nextProfileLocked };
+  return { uid: session.uid, name, room, lastSeen: now, currentUrl, profileLocked: nextProfileLocked, schoolId: existingFields?.schoolId?.stringValue || "", classId: existingFields?.classId?.stringValue || "" };
 }
 
 
@@ -250,23 +250,49 @@ chrome.webNavigation.onCommitted.addListener(details => {
     .catch(error => console.warn("Focus Guard could not save URL history:", error.message || error));
 });
 
-async function syncRemotePolicy(deviceRoom = "") {
+async function syncRemotePolicy(deviceRoom = "", schoolId = "") {
   const session = await getFirebaseSession();
   const headers = { "Authorization": `Bearer ${session.idToken}` };
   let selectedPolicy = null;
+  let deviceClassId = "";
   try {
     const deviceUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
     const deviceDoc = await requestJson(deviceUrl, { headers });
     const fields = deviceDoc.fields || {};
+    schoolId = fields.schoolId?.stringValue || schoolId;
+    deviceClassId = fields.classId?.stringValue || "";
     const mode = fields.policyMode?.stringValue || "inherit";
     if (["free", "block_all", "whitelist"].includes(mode)) {
       const whitelist = (fields.policyWhitelist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
-      selectedPolicy = { mode, whitelist, blacklist: [], source: "device" };
+      selectedPolicy = { mode, whitelist, blacklist: [], source: "device", schoolId };
     }
   } catch (error) {
     if (!/NOT_FOUND|not found/i.test(String(error.message))) {
       console.warn("Focus Guard could not sync device-specific policy:", error.message);
       return false;
+    }
+  }
+  if (schoolId && !selectedPolicy) {
+    try {
+      const schoolUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/schools/${encodeURIComponent(schoolId)}/settings/navigationPolicy`;
+      const schoolDoc = await requestJson(schoolUrl, { headers });
+      const f = schoolDoc.fields || {};
+      const schoolMode = f.mode?.stringValue || "free";
+      const schoolWhitelist = (f.whitelist?.arrayValue?.values || []).map(x => x.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+      const schoolBlacklist = (f.blacklist?.arrayValue?.values || []).map(x => x.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+      const groupValues = f.groups?.arrayValue?.values || [];
+      const groups = groupValues.map(item => {
+        const g = item.mapValue?.fields || {};
+        return { classId: g.classId?.stringValue || "", name: g.name?.stringValue || "", mode: g.mode?.stringValue || "", whitelist: (g.whitelist?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean) };
+      });
+      const match = groups.find(g => (g.classId && g.classId === deviceClassId) || (!g.classId && g.name.trim().toLocaleLowerCase() === String(deviceRoom).trim().toLocaleLowerCase()));
+      if (match && ["free", "block_all", "whitelist"].includes(match.mode)) selectedPolicy = { mode: match.mode, whitelist: match.whitelist.slice(0, MAX_DOMAINS), blacklist: schoolBlacklist, source: "group", schoolId };
+      else if (["free", "block_all", "whitelist"].includes(schoolMode)) selectedPolicy = { mode: schoolMode, whitelist: schoolWhitelist, blacklist: schoolBlacklist, source: "school", schoolId };
+    } catch (error) {
+      if (!/NOT_FOUND|not found/i.test(String(error.message))) {
+        console.warn("Focus Guard could not sync the school navigation policy:", error.message);
+        return false;
+      }
     }
   }
   if (!selectedPolicy) try {
@@ -307,6 +333,15 @@ async function syncRemotePolicy(deviceRoom = "") {
       return false;
     }
   }
+  if (selectedPolicy?.source === "device" && schoolId) {
+    try {
+      const schoolUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/schools/${encodeURIComponent(schoolId)}/settings/navigationPolicy`;
+      const schoolDoc = await requestJson(schoolUrl, { headers });
+      selectedPolicy.blacklist = (schoolDoc.fields?.blacklist?.arrayValue?.values || []).map(item => item.stringValue).filter(Boolean).slice(0, MAX_DOMAINS);
+    } catch (error) {
+      if (!/NOT_FOUND|not found/i.test(String(error.message))) return false;
+    }
+  }
   if (selectedPolicy?.source === "group") {
     try {
       const globalUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/globalPolicy`;
@@ -338,7 +373,7 @@ async function reportSync() {
   let policySynced = false;
   try {
     const saved = await chrome.storage.local.get("deviceRoom");
-    policySynced = await syncRemotePolicy(device?.room || saved.deviceRoom || "");
+    policySynced = await syncRemotePolicy(device?.room || saved.deviceRoom || "", device?.schoolId || "");
   } catch (error) { console.warn("Focus Guard could not refresh the navigation policy:", error.message || error); }
   if (device?.currentUrl) {
     recentUrlWriteQueue = recentUrlWriteQueue.then(() => recordRecentUrl(device.currentUrl))
