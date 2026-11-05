@@ -37,23 +37,13 @@ Cada fila dispone del botón **Ver URL**. Muestra la URL HTTP/HTTPS de la pesta�
 
 **Privacidad:** la dirección se guarda completa y puede contener rutas, términos de búsqueda o parámetros. Solo se recoge la pestaña activa de la última ventana enfocada que la extensión haya podido consultar; no es un historial de navegación ni una captura de todas las pestañas. Informa de esta supervisión a los usuarios conforme a las normas del centro y define una política adecuada de acceso y retención.
 
-## Control web global
+## Políticas de navegación por colegio y clase
 
-En **Control web** puedes seleccionar:
+En la pantalla de un colegio, el personal con permisos de operación puede configurar la política general de ese centro, su lista negra y su lista blanca. También puede establecer excepciones por clase. La lista negra del colegio conserva prioridad sobre las listas blancas.
 
-- **Libertad total** (`free`): permite navegar salvo los dominios incluidos en la lista negra global.
-- **Bloqueo total** (`block_all`): bloquea la navegación HTTP/HTTPS.
-- **Lista blanca** (`whitelist`): permite únicamente los dominios autorizados y sus subdominios.
+La prioridad es: política individual del dispositivo → política de clase → política general del colegio. Si el dispositivo no está asignado a un colegio, continúa usando la configuración global antigua hasta que se asigne.
 
-La lista negra global se aplica independientemente del modo seleccionado. Las listas admiten hasta 50 dominios. Las reglas de navegación incluyen páginas principales e iframes/subdocumentos HTTP/HTTPS.
-
-La política se guarda en `settings/globalPolicy` y se sincroniza con las instalaciones conectadas al proyecto Firebase. Para que el panel pueda guardar y las extensiones puedan leerla, deben estar publicadas las reglas Firestore correspondientes.
-
-## Políticas por aula o grupo
-
-En **Aulas y grupos** puedes configurar políticas específicas para cada grupo. El nombre del grupo debe coincidir exactamente con el campo **Aula / grupo** del dispositivo. Cuando no existe una política específica para ese grupo, se aplica la política global.
-
-La lista negra global conserva su alcance general también al utilizar políticas por grupo. La sincronización depende de que el perfil de Chrome pueda comunicarse con Firebase.
+Las políticas del colegio se guardan en `schools/{schoolId}/settings/navigationPolicy`. Las excepciones por clase incluyen el ID de la clase para evitar colisiones entre colegios con nombres iguales. Los dispositivos leen únicamente la política del colegio al que están asignados.
 
 ## Página de bloqueo y modo sin conexión
 
