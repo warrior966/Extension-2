@@ -5,7 +5,7 @@ service cloud.firestore {
   function userPath(uid){return /databases/$(database)/documents/users/$(uid);}
   function hasUser(){return signedIn()&&exists(userPath(request.auth.uid));}
   function userData(){return get(userPath(request.auth.uid)).data;}
-  function activePanelUser(){return hasUser()&&(!('expiresAt' in userData())||userData().expiresAt==null||userData().expiresAt>request.time);}
+  function activePanelUser(){return hasUser()&&(!('active' in userData())||userData().active!=false)&&(!('expiresAt' in userData())||userData().expiresAt==null||userData().expiresAt>request.time);}
   function globalRole(){return hasUser()?(('globalRole' in userData())?userData().globalRole:(('role' in userData()&&userData().role=='owner')?'owner':'')):'';}
   function isOwner(){return activePanelUser()&&globalRole()=='owner';}
   function isTargetOwner(uid){return exists(userPath(uid))&&((('globalRole' in get(userPath(uid)).data)&&get(userPath(uid)).data.globalRole=='owner')||(('role' in get(userPath(uid)).data)&&get(userPath(uid)).data.role=='owner'));}
