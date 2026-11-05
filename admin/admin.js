@@ -42,7 +42,40 @@ $("managementBtn").addEventListener("click",async()=>{await loadManagement();sho
 $("schoolGrid").addEventListener("click",e=>{const b=e.target.closest("[data-open-school]");if(b)openSchool(b.dataset.openSchool).catch(console.error)});$("classGrid").addEventListener("click",e=>{const b=e.target.closest("[data-open-class]");if(b)openClass(b.dataset.openClass).catch(console.error)});
 $("breadcrumb").addEventListener("click",e=>{if(e.target.closest("[data-home]")){$("homeBtn").click()}else if(e.target.closest("[data-school]"))$("backClasses").click()});
 $("deviceSearch").addEventListener("input",renderDevices);$("statusFilter").addEventListener("change",renderDevices);$("addDeviceBtn").addEventListener("click",()=>openDevice(null));
-$("deviceRows").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const d=devices.find(x=>x.id===Object.values(b.dataset)[0]);if(!d)return;try{if(b.dataset.url)showUrl(d);else if(b.dataset.history)showHistory(d);else if(b.dataset.editDevice)openDevice(d);else if(b.dataset.lock){await setDoc(doc(db,"devices",d.id),{profileLocked:d.profileLocked!==true,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});await loadDevices();notify("Perfil actualizado")}else if(b.dataset.deleteDevice&&confirm("¿Eliminar el registro "+d.name+"?")){await deleteDoc(doc(db,"devices",d.id));await loadDevices();notify("Dispositivo eliminado")}else if(b.dataset.policy){const mode=prompt("Modo: inherit, free, block_all o whitelist",d.policyMode||"inherit");if(!mode)return;if(!["inherit","free","block_all","whitelist"].includes(mode))throw Error("Modo no válido");let wl=[];if(mode==="whitelist"){wl=(prompt("Dominios permitidos separados por comas", (d.policyWhitelist||[]).join(", "))||"").split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean);if(!wl.length)throw Error("La lista blanca no puede estar vacía");wl=validDomains(wl.join("\n"))}if(wl.length>50)throw Error("La lista admite un máximo de 50 dominios.");await setDoc(doc(db,"devices",d.id),{policyMode:mode,policyWhitelist:wl,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});await loadDevices();notify("Política individual guardada")}}catch(err){console.error(err);notify(err.message||"No se pudo completar la operación")}});
+$("deviceRows").addEventListener("click",async e=>{const b=e.target.closest("button");if(!b)return;const d=devices.find(x=>x.id===Object.values(b.dataset)[0]);if(!d)return;try{if(b.dataset.url)showUrl(d);else if(b.dataset.history)showHistory(d);else if(b.dataset.editDevice)openDevice(d);else if(b.dataset.lock){await setDoc(doc(db,"devices",d.id),{profileLocked:d.profileLocked!==true,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});await loadDevices();notify("Perfil actualizado")}else if(b.dataset.deleteDevice&&confirm("¿Eliminar el registro "+d.name+"?")){await deleteDoc(doc(db,"devices",d.id));await loadDevices();notify("Dispositivo eliminado")}else if(b.dataset.policy){openDevicePolicy(d)}}catch(err){console.error(err);notify(err.message||"No se pudo completar la operación")}});
+
+let editingPolicyDevice=null;
+function openDevicePolicy(d){
+  editingPolicyDevice=d;
+  $("devicePolicyTitle").textContent="Política de "+(d.name||d.id);
+  $("devicePolicyMode").value=["inherit","free","block_all","whitelist"].includes(d.policyMode)?d.policyMode:"inherit";
+  $("devicePolicyWhitelist").value=(d.policyWhitelist||[]).join("\n");
+  $("devicePolicyStatus").textContent="";
+  updateDevicePolicyFields();
+  $("devicePolicyDialog").showModal();
+}
+function updateDevicePolicyFields(){
+  const active=$("devicePolicyMode").value==="whitelist";
+  $("devicePolicyWhitelistField").hidden=!active;
+  $("devicePolicyWhitelist").required=active;
+}
+$("devicePolicyMode").addEventListener("change",updateDevicePolicyFields);
+$("devicePolicyForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const status=$("devicePolicyStatus");
+  try{
+    if(!editingPolicyDevice)throw Error("No se ha seleccionado ningún dispositivo.");
+    const mode=$("devicePolicyMode").value;
+    if(!["inherit","free","block_all","whitelist"].includes(mode))throw Error("Selecciona un modo válido.");
+    const wl=mode==="whitelist"?validDomains($("devicePolicyWhitelist").value):[];
+    if(mode==="whitelist"&&!wl.length)throw Error("Añade al menos un dominio permitido.");
+    if(wl.length>50)throw Error("La lista admite un máximo de 50 dominios.");
+    const save=$("devicePolicySave");save.disabled=true;save.textContent="Guardando…";
+    await setDoc(doc(db,"devices",editingPolicyDevice.id),{policyMode:mode,policyWhitelist:wl,updatedAt:serverTimestamp(),updatedBy:user.uid},{merge:true});
+    $("devicePolicyDialog").close();await loadDevices();notify("Política individual guardada");editingPolicyDevice=null;
+  }catch(err){status.textContent=err.message||"No se pudo guardar la política."}
+  finally{$("devicePolicySave").disabled=false;$("devicePolicySave").textContent="Guardar política"}
+});
 $("deviceForm").addEventListener("submit",async e=>{e.preventDefault();try{const old=$("deviceId").value,id=old||"FG-"+crypto.randomUUID().slice(0,8).toUpperCase();const payload={name:$("deviceName").value.trim(),room:$("deviceRoom").value.trim(),owner:$("deviceOwner").value.trim(),platform:$("devicePlatform").value,status:$("deviceStatus").value,schoolId:selectedSchool.id,classId:selectedClass.id,updatedAt:serverTimestamp(),updatedBy:user.uid};await setDoc(doc(db,"devices",id),payload,{merge:true});$("deviceDialog").close();await loadDevices();notify("Dispositivo guardado")}catch(err){notify(err.message||"No se pudo guardar el dispositivo")}});
 $("exportBtn").addEventListener("click",()=>{const cols=["id","name","room","owner","platform","status"];const csv=[cols.join(","),...devices.map(d=>cols.map(k=>'"'+String(d[k]??"").replace(/"/g,'""')+'"').join(","))].join("\r\n");const url=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="focus-guard-"+selectedSchool.id+"-"+selectedClass.name+".csv";a.click();URL.revokeObjectURL(url)});
 $("schoolForm").addEventListener("submit",async e=>{e.preventDefault();try{const id=$("schoolId").value||("school-"+crypto.randomUUID());const payload={name:$("schoolName").value.trim(),location:$("schoolLocation").value.trim(),updatedAt:serverTimestamp(),updatedBy:user.uid};await setDoc(doc(db,"schools",id),payload,{merge:true});$("schoolForm").reset();$("schoolId").value="";$("cancelSchoolEdit").hidden=true;await loadManagement();notify("Colegio guardado")}catch(err){notify(err.message||"No se pudo guardar el colegio")}});
