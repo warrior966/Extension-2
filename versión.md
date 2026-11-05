@@ -319,3 +319,13 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 **Migración y despliegue necesarios:** publicar las nuevas reglas de Firestore. Crear los colegios y clases desde Gestión y asignar a cada usuario sus roles por colegio. Los dispositivos antiguos aparecen en **Dispositivos sin asignar** para incorporarlos a una clase. Las cuentas existentes con `role: admin/operator/viewer` no reciben automáticamente un colegio: deben asignarse a uno desde Gestión (o mediante Firebase Console si su documento no tiene correo electrónico). El owner existente con `role: owner` se reconoce como owner sin cambiar su documento.
 
 **Pendiente de prueba:** no se ha ejecutado la aplicación contra Firebase ni se ha probado la sincronización en Chromebooks reales. Antes de usar datos reales, probar el acceso de cada rol, la creación de colegios/cuentas, las asignaciones, la caducidad, las políticas y la migración de dispositivos.
+
+
+## Versión 4.0.0 — nueva versión principal del panel multi-colegio
+
+- Se establece `4.0.0` como nueva versión de Focus Guard.
+- Se conserva la arquitectura multi-colegio introducida en 3.1.0: navegación por colegios, clases y dispositivos, y roles locales por colegio.
+- Se conservan los roles globales de owner y administrador general, con sus restricciones de asignación.
+- Se mantienen las políticas de navegación por colegio, clase y dispositivo, el historial de URLs y las funciones de gestión existentes.
+
+**Nota:** este cambio actualiza el número de versión; no incorpora por sí mismo nuevas funciones ni implica que se hayan completado pruebas en Firebase o Chromebooks.
