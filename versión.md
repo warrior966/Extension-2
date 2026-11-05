@@ -363,3 +363,14 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza el manifiesto a `4.0.3`.
 
 **Pendiente de prueba:** comprobar con cuentas de prueba que el acceso desaparece solo en el colegio elegido y que el usuario conserva el acceso a sus otros colegios. No se ha probado contra Firebase ni en Chromebooks reales.
+
+
+## Versión 4.0.4 — desactivar y retirar usuarios administradores
+
+- Se añade **Eliminar usuario** en Gestión → Cuentas y asignaciones para revocar el acceso de una cuenta al panel y a todos sus colegios.
+- La operación elimina sus asignaciones de `schoolRoles`, marca el perfil como inactivo y establece su caducidad en el pasado. El documento `users/{uid}` se conserva, de acuerdo con la política de no borrar documentos de usuario.
+- Las reglas de Firestore y la validación de inicio de sesión rechazan cuentas inactivas. El formulario de edición permite reactivar una cuenta al guardar cambios.
+- Los administradores generales pueden eliminar cuentas de colegio; solo el owner puede eliminar administradores generales. Las cuentas owner están protegidas.
+- No se elimina el usuario de Firebase Authentication, ni ningún colegio, clase o dispositivo; el acceso al panel queda revocado.
+
+**Pendiente de prueba:** validar la desactivación, el rechazo de inicio de sesión, la reactivación y las restricciones de rol con Firebase real y reglas publicadas. No se ha probado en Firebase ni en Chromebooks reales.
