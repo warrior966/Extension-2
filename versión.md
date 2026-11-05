@@ -294,3 +294,28 @@ Se agrupan bajo una versión principal las funciones incorporadas en las última
 El manifiesto de Chrome se actualiza a **3.0.0**.
 
 **Despliegue:** publicar las reglas actuales de Firestore, recargar la extensión y comprobar las funciones en dispositivos reales. El cambio de numeración no sustituye estas tareas de despliegue y validación.
+
+
+## Versión 3.1.0 — panel multi-colegio y roles por centro
+
+- Se reconstruye la navegación del panel: inicio de sesión → colegios asignados → clases del colegio → dispositivos de la clase.
+- Los usuarios sin colegios asignados reciben un mensaje explicativo.
+- Owner y administrador general disponen de **Gestión** para crear, modificar y eliminar colegios, administrar clases y crear cuentas.
+- Se incorporan los roles globales `owner` y `general_admin`. El owner puede crear administradores generales; el administrador general no puede crear ni modificar owners ni otros administradores generales.
+- Los roles `admin`, `operator` y `viewer` se asignan individualmente dentro de cada colegio. Una misma cuenta puede tener roles distintos en varios colegios.
+- Se añaden documentos `schools/{schoolId}`, clases en `schools/{schoolId}/classes` y asignaciones en `users/{uid}/schoolRoles/{schoolId}`.
+- Las políticas de navegación pasan a estar separadas por colegio, con excepciones por clase, lista negra del colegio y prioridad de política individual por dispositivo.
+- Se conserva la consulta de URL actual, el historial de 30 URLs, el bloqueo/desbloqueo del perfil y la política individual del dispositivo.
+- Se añade una sección para asignar los dispositivos existentes que todavía no pertenecen a un colegio.
+- Se mantienen los perfiles documentales de política, ahora separados por colegio.
+- Se amplían las reglas Firestore para comprobar los permisos por colegio y para que los dispositivos anónimos solo lean la política del colegio al que están asignados.
+
+### Archivos principales
+- `admin/index.html`, `admin/admin.js`, `admin/admin.css`: nueva interfaz y gestión multi-colegio.
+- `firestore.rules`: permisos globales, asignaciones por colegio, clases, dispositivos y políticas.
+- `service-worker.js`: sincronización de políticas por colegio y clase.
+- `manifest.json`: versión `3.1.0`.
+
+**Migración y despliegue necesarios:** publicar las nuevas reglas de Firestore. Crear los colegios y clases desde Gestión y asignar a cada usuario sus roles por colegio. Los dispositivos antiguos aparecen en **Dispositivos sin asignar** para incorporarlos a una clase. Las cuentas existentes con `role: admin/operator/viewer` no reciben automáticamente un colegio: deben asignarse a uno desde Gestión (o mediante Firebase Console si su documento no tiene correo electrónico). El owner existente con `role: owner` se reconoce como owner sin cambiar su documento.
+
+**Pendiente de prueba:** no se ha ejecutado la aplicación contra Firebase ni se ha probado la sincronización en Chromebooks reales. Antes de usar datos reales, probar el acceso de cada rol, la creación de colegios/cuentas, las asignaciones, la caducidad, las políticas y la migración de dispositivos.
