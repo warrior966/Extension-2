@@ -70,7 +70,7 @@ function lastSeenLabel(d) {
 function renderDevices() {
   const term = $("deviceSearch").value.trim().toLocaleLowerCase("es"), status = $("statusFilter").value;
   const filtered = devices.filter(d => (status === "all" || d.status === status) && [d.name,d.room,d.owner,d.platform,d.id].some(v => String(v || "").toLocaleLowerCase("es").includes(term)));
-  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td>${d.profileLocked === true ? "Bloqueados" : "Desbloqueados"}</td><td><div class="row-actions"><button class="mini-btn" data-view-url="${esc(d.id)}">Ver URL</button><button class="mini-btn" data-view-history="${esc(d.id)}">Últimas 30 URLs</button>${canOperate() ? '<button class="mini-btn" data-toggle-profile-lock="'+esc(d.id)+'">'+(d.profileLocked === true ? "Desbloquear datos" : "Bloquear datos")+'</button><button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${(role === "admin" || isOwner()) ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
+  $("deviceRows").innerHTML = filtered.map(d => `<tr><td>${esc(d.name)}<span class="subcell">${esc(d.id)}</span></td><td>${esc(d.room)}</td><td>${esc(d.owner || "—")}</td><td>${esc(d.platform)}</td><td>${esc(lastSeenLabel(d))}</td><td><span class="state ${esc(d.status)}">${esc(d.status)}</span></td><td>${d.profileLocked === true ? "Bloqueados" : "Desbloqueados"}</td><td><div class="row-actions"><button class="mini-btn" data-view-url="${esc(d.id)}">Ver URL</button><button class="mini-btn" data-view-history="${esc(d.id)}">Últimas 30 URLs</button>${canOperate() ? '<button class="mini-btn" data-device-policy="'+esc(d.id)+'">Política</button><button class="mini-btn" data-toggle-profile-lock="'+esc(d.id)+'">'+(d.profileLocked === true ? "Desbloquear datos" : "Bloquear datos")+'</button><button class="mini-btn" data-edit="'+esc(d.id)+'">Editar</button>' : ''}${(role === "admin" || isOwner()) ? '<button class="mini-btn danger" data-delete="'+esc(d.id)+'">Eliminar</button>' : ''}</div></td></tr>`).join("");
   $("emptyDevices").hidden = filtered.length > 0;
   stats();
 }
@@ -246,6 +246,20 @@ $("addDeviceBtn").addEventListener("click", () => openDevice(null));
 $("deviceSearch").addEventListener("input", renderDevices);
 $("statusFilter").addEventListener("change", renderDevices);
 $("deviceRows").addEventListener("click", async e => {
+  const devicePolicyButton = e.target.closest("[data-device-policy]");
+  if (devicePolicyButton) {
+    const d = devices.find(x => x.id === devicePolicyButton.dataset.devicePolicy);
+    if (d) {
+      $("devicePolicyForm").reset();
+      $("devicePolicyId").value = d.id;
+      $("devicePolicyTitle").textContent = "Política: " + d.name;
+      $("devicePolicyMode").value = ["inherit","free","block_all","whitelist"].includes(d.policyMode) ? d.policyMode : "inherit";
+      $("devicePolicyWhitelist").value = Array.isArray(d.policyWhitelist) ? d.policyWhitelist.join("\\n") : "";
+      $("devicePolicyStatus").textContent = "";
+      $("devicePolicyDialog").showModal();
+    }
+    return;
+  }
   const viewHistory = e.target.closest("[data-view-history]");
   if (viewHistory) { showDeviceHistory(viewHistory.dataset.viewHistory); return; }
   const viewUrl = e.target.closest("[data-view-url]");
@@ -270,6 +284,32 @@ $("deviceRows").addEventListener("click", async e => {
     if (d && confirm("¿Eliminar el registro "+d.name+"? No afecta al equipo real.")) try {
       await deleteDoc(doc(db, "devices", d.id)); await refresh(); toast("Registro eliminado");
     } catch (err) { fail("No se pudo eliminar el registro. Comprueba los permisos.", err); }
+  }
+});
+$("devicePolicyForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const status = $("devicePolicyStatus");
+  try {
+    if (!canOperate()) throw new Error("Tu rol no permite modificar políticas.");
+    const id = $("devicePolicyId").value;
+    const mode = $("devicePolicyMode").value;
+    const raw = $("devicePolicyWhitelist").value.split(/[\\r\\n,;]+/).map(v => v.trim()).filter(Boolean);
+    const whitelist = [...new Set(raw.map(normalizePolicyDomain))];
+    if (whitelist.includes(null)) throw new Error("Hay un dominio no válido. Usa example.com, sin rutas.");
+    if (whitelist.length > 50) throw new Error("La lista blanca admite un máximo de 50 dominios.");
+    if (mode === "whitelist" && whitelist.length === 0) throw new Error("Añade al menos un dominio para la lista blanca.");
+    await setDoc(doc(db, "devices", id), {
+      policyMode: mode,
+      policyWhitelist: mode === "whitelist" ? whitelist : [],
+      updatedAt: serverTimestamp(),
+      updatedBy: user.uid
+    }, {merge:true});
+    $("devicePolicyDialog").close();
+    await refresh();
+    toast("Política individual guardada");
+  } catch (err) {
+    console.error(err);
+    status.textContent = err.message || "No se pudo guardar la política del dispositivo.";
   }
 });
 $("deviceForm").addEventListener("submit", async e => {
