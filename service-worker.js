@@ -212,7 +212,7 @@ async function syncDevice(overrides = {}) {
 
 async function recordRecentUrl(value) {
   const urlValue = String(value || "").slice(0, 2048);
-  if (!/^https?:\\/\\//i.test(urlValue)) return;
+  if (!/^https?:\/\//i.test(urlValue)) return;
   const session = await getFirebaseSession();
   const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
   const headers = { "Authorization": `Bearer ${session.idToken}` };
@@ -224,7 +224,7 @@ async function recordRecentUrl(value) {
       url: fields.url?.stringValue || "",
       visitedAt: fields.visitedAt?.timestampValue || ""
     };
-  }).filter(item => /^https?:\\/\\//i.test(item.url));
+  }).filter(item => /^https?:\/\//i.test(item.url));
   const now = new Date().toISOString();
   const next = history.slice();
   if (next[0]?.url === urlValue) next.shift();
@@ -244,7 +244,7 @@ async function recordRecentUrl(value) {
 
 let recentUrlWriteQueue = Promise.resolve();
 chrome.webNavigation.onCommitted.addListener(details => {
-  if (details.frameId !== 0 || !/^https?:\\/\\//i.test(details.url)) return;
+  if (details.frameId !== 0 || !/^https?:\/\//i.test(details.url)) return;
   recentUrlWriteQueue = recentUrlWriteQueue
     .then(() => recordRecentUrl(details.url))
     .catch(error => console.warn("Focus Guard could not save URL history:", error.message || error));
