@@ -2,6 +2,7 @@
   "use strict";
 
   const INLINE_HTML = /^\s*(?:<!doctype\s+html|<html(?:\s|>)|<(?:script|iframe|body|head|div|form|svg|section|article)(?:\s|>|\/))/i;
+  let guardStarted = false;
 
   function isInlineHtmlFrame(frame) {
     if (frame.hasAttribute("srcdoc")) return true;
@@ -27,20 +28,35 @@
     });
   }
 
-  document.querySelectorAll("iframe").forEach(frame => {
-    if (isInlineHtmlFrame(frame)) blockInlineHtmlFrame(frame);
-  });
+  function startGuard() {
+    if (guardStarted) return;
+    guardStarted = true;
+    document.querySelectorAll("iframe").forEach(frame => {
+      if (isInlineHtmlFrame(frame)) blockInlineHtmlFrame(frame);
+    });
 
-  const observer = new MutationObserver(records => {
-    for (const record of records) {
-      if (record.type === "attributes") inspect(record.target);
-      for (const node of record.addedNodes || []) inspect(node);
-    }
-  });
-  observer.observe(document.documentElement || document, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ["src", "srcdoc"]
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.type === "attributes") inspect(record.target);
+        for (const node of record.addedNodes || []) inspect(node);
+      }
+    });
+    observer.observe(document.documentElement || document, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["src", "srcdoc"]
+    });
+  }
+
+  function checkManagedPolicy() {
+    chrome.storage.local.get(["remotePolicy"], ({ remotePolicy }) => {
+      if (["free", "block_all", "whitelist"].includes(remotePolicy?.mode)) startGuard();
+    });
+  }
+
+  checkManagedPolicy();
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.remotePolicy) checkManagedPolicy();
   });
 })();
