@@ -329,3 +329,14 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se mantienen las políticas de navegación por colegio, clase y dispositivo, el historial de URLs y las funciones de gestión existentes.
 
 **Nota:** este cambio actualiza el número de versión; no incorpora por sí mismo nuevas funciones ni implica que se hayan completado pruebas en Firebase o Chromebooks.
+
+
+## Versión 4.0.1 — formulario integrado para políticas individuales
+
+- Se sustituye la edición de la política individual mediante cuadros `prompt()` del navegador por un formulario dentro del panel Focus Guard.
+- El formulario permite seleccionar Heredar, Libertad total, Bloqueo total o Lista blanca.
+- El campo de dominios permitidos aparece únicamente al seleccionar Lista blanca e incluye validación y límite de 50 dominios.
+- Se mantienen la prioridad de la política individual y el guardado en el documento del dispositivo en Firestore.
+- Se actualiza `manifest.json` a `4.0.1`.
+
+**Pendiente de prueba:** comprobar en el panel desplegado los cuatro modos, la validación de dominios y el guardado/lectura en Firestore. No se ha probado en un navegador real ni en Chromebooks.
