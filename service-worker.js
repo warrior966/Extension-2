@@ -226,12 +226,13 @@ async function recordRecentUrl(value) {
     };
   }).filter(item => /^https?:\\/\\//i.test(item.url));
   const now = new Date().toISOString();
-  const next = history.filter(item => item.url !== urlValue);
+  const next = history.slice();
+  if (next[0]?.url === urlValue) next.shift();
   next.unshift({ url: urlValue, visitedAt: now });
   const values = next.slice(0, 30).map(item => ({
     mapValue: { fields: {
       url: { stringValue: item.url },
-      visitedAt: { timestampValue: item.url === urlValue ? now : item.visitedAt }
+      visitedAt: { timestampValue: item.visitedAt }
     }}
   }));
   await requestJson(`${documentUrl}?updateMask.fieldPaths=recentUrls`, {
