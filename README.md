@@ -57,11 +57,9 @@ Para entornos educativos administrados, se recomienda distribuir y controlar la 
 
 ## Roles del panel
 
-- `admin`: administración completa de los registros, incluida su eliminación.
-- `operator`: consulta y gestión operativa de dispositivos y perfiles, además de auditoría.
-- `viewer`: consulta de dispositivos y perfiles, sin cambios ni acceso a auditoría.
+El panel es multi-colegio: `admin`, `operator` y `viewer` se asignan por colegio. Una cuenta puede tener distintos roles en distintos centros. `general_admin` gestiona todos los colegios y asigna los roles locales; `owner` también puede crear administradores generales. No se pueden crear ni modificar otras cuentas owner.
 
-Los roles se asignan en Firestore mediante documentos de `users` cuyo ID coincide con el UID de Authentication.
+Consulta [admin/README.md](admin/README.md) para el esquema de datos, la migración de cuentas existentes y la publicación de las reglas Firestore.
 
 ## Identidad, privacidad y seguridad
 
