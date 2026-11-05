@@ -342,7 +342,7 @@ async function syncRemotePolicy(deviceRoom = "", schoolId = "") {
       if (!/NOT_FOUND|not found/i.test(String(error.message))) return false;
     }
   }
-  if (selectedPolicy?.source === "group") {
+  if (selectedPolicy?.source === "group" && !selectedPolicy.schoolId) {
     try {
       const globalUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/settings/globalPolicy`;
       const globalDoc = await requestJson(globalUrl, { headers });
