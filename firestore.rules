@@ -4,38 +4,60 @@ service cloud.firestore {
   function signedIn(){return request.auth!=null;}
   function userPath(uid){return /databases/$(database)/documents/users/$(uid);}
   function hasUser(){return signedIn()&&exists(userPath(request.auth.uid));}
-  function role(){return hasUser()?get(userPath(request.auth.uid)).data.role:'';}
-  function activePanelUser(){return hasUser()&&role() in ['owner','admin','operator','viewer']&&(!('expiresAt' in get(userPath(request.auth.uid)).data)||get(userPath(request.auth.uid)).data.expiresAt==null||get(userPath(request.auth.uid)).data.expiresAt>request.time);}
-  function isOwner(){return activePanelUser()&&role()=='owner';}
-  function isAdmin(){return activePanelUser()&&role()=='admin';}
-  function canOperate(){return activePanelUser()&&role() in ['owner','admin','operator'];}
+  function userData(){return get(userPath(request.auth.uid)).data;}
+  function activePanelUser(){return hasUser()&&(!('expiresAt' in userData())||userData().expiresAt==null||userData().expiresAt>request.time);}
+  function globalRole(){return hasUser()?(('globalRole' in userData())?userData().globalRole:(('role' in userData()&&userData().role=='owner')?'owner':'')):'';}
+  function isOwner(){return activePanelUser()&&globalRole()=='owner';}
+  function isGeneral(){return activePanelUser()&&globalRole() in ['owner','general_admin'];}
+  function schoolRolePath(uid,sid){return /databases/$(database)/documents/users/$(uid)/schoolRoles/$(sid);}
+  function hasSchoolRole(sid){return activePanelUser()&&exists(schoolRolePath(request.auth.uid,sid));}
+  function schoolRole(sid){return get(schoolRolePath(request.auth.uid,sid)).data.role;}
+  function canReadSchool(sid){return isGeneral()||hasSchoolRole(sid);}
+  function canOperateSchool(sid){return isGeneral()||(hasSchoolRole(sid)&&schoolRole(sid) in ['admin','operator']);}
+  function canAdminSchool(sid){return isGeneral()||(hasSchoolRole(sid)&&schoolRole(sid)=='admin');}
   function isAnonymousDeviceClient(){return signedIn()&&request.auth.token.firebase.sign_in_provider=='anonymous';}
   function isOwnDevice(id){return isAnonymousDeviceClient()&&request.auth.uid==id;}
-  function validDevice(){return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','recentUrls','updatedBy','profileLocked','policyMode','policyWhitelist'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.room is string&&request.resource.data.room.size()>0&&request.resource.data.room.size()<=80&&request.resource.data.owner is string&&request.resource.data.owner.size()<=80&&request.resource.data.platform in ['Windows','ChromeOS','macOS','Linux','Otro']&&request.resource.data.status in ['Pendiente','Activo','Mantenimiento','Retirado']&&request.resource.data.updatedBy==request.auth.uid&&(!('profileLocked' in request.resource.data)||request.resource.data.profileLocked is bool)&&(!('policyMode' in request.resource.data)||request.resource.data.policyMode in ['inherit','free','block_all','whitelist'])&&(!('policyWhitelist' in request.resource.data)||(request.resource.data.policyWhitelist is list&&request.resource.data.policyWhitelist.size()<=50));}
+  function validDevice(){return request.resource.data.keys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','recentUrls','updatedBy','profileLocked','policyMode','policyWhitelist','schoolId','classId'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.room is string&&request.resource.data.room.size()>0&&request.resource.data.room.size()<=80&&request.resource.data.owner is string&&request.resource.data.owner.size()<=80&&request.resource.data.platform in ['Windows','ChromeOS','macOS','Linux','Otro']&&request.resource.data.status in ['Pendiente','Activo','Mantenimiento','Retirado']&&request.resource.data.updatedBy==request.auth.uid&&(!('profileLocked' in request.resource.data)||request.resource.data.profileLocked is bool)&&(!('policyMode' in request.resource.data)||request.resource.data.policyMode in ['inherit','free','block_all','whitelist'])&&(!('policyWhitelist' in request.resource.data)||(request.resource.data.policyWhitelist is list&&request.resource.data.policyWhitelist.size()<=50))&&(!('schoolId' in request.resource.data)||request.resource.data.schoolId is string)&&(!('classId' in request.resource.data)||request.resource.data.classId is string);}
   function validChromeDevice(){return validDevice()&&request.resource.data.platform=='ChromeOS'&&request.resource.data.lastSeen is timestamp&&request.resource.data.currentUrl is string&&request.resource.data.currentUrl.size()<=2048&&request.resource.data.updatedAt is timestamp&&(!('recentUrls' in request.resource.data)||(request.resource.data.recentUrls is list&&request.resource.data.recentUrls.size()<=30));}
   match /users/{uid}{
-   allow read: if activePanelUser()&&(request.auth.uid==uid||isOwner());
-   allow create: if false;
-   allow update: if isOwner()&&uid!=request.auth.uid&&resource.data.role!='owner'&&request.resource.data.role in ['admin','operator','viewer']&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','expiresAt','updatedAt','updatedBy'])&&(!('expiresAt' in request.resource.data)||request.resource.data.expiresAt==null||request.resource.data.expiresAt is timestamp)&&request.resource.data.updatedBy==request.auth.uid;
+   allow read: if activePanelUser()&&(request.auth.uid==uid||isGeneral());
+   allow create: if isGeneral()&&request.resource.data.keys().hasOnly(['email','globalRole','role','expiresAt','active','createdAt','createdBy','updatedAt','updatedBy'])&&request.resource.data.email is string&&(!('globalRole' in request.resource.data)||(isOwner()&&request.resource.data.globalRole=='general_admin'))&&(!('role' in request.resource.data)||request.resource.data.role in ['admin','operator','viewer'])&&(!('expiresAt' in request.resource.data)||request.resource.data.expiresAt==null||request.resource.data.expiresAt is timestamp);
+   allow update: if isGeneral()&&resource.data.globalRole!='owner'&&resource.data.role!='owner'&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email','globalRole','expiresAt','active','updatedAt','updatedBy'])&&(!('globalRole' in request.resource.data)||(isOwner()&&request.resource.data.globalRole=='general_admin'))&&(!('expiresAt' in request.resource.data)||request.resource.data.expiresAt==null||request.resource.data.expiresAt is timestamp);
    allow delete: if false;
+   match /schoolRoles/{schoolId}{
+    allow read: if activePanelUser()&&(request.auth.uid==uid||isGeneral());
+    allow create,update: if isGeneral()&&exists(/databases/$(database)/documents/schools/$(schoolId))&&request.resource.data.keys().hasOnly(['role','schoolId','updatedAt','updatedBy'])&&request.resource.data.role in ['admin','operator','viewer']&&request.resource.data.schoolId==schoolId&&request.resource.data.updatedBy==request.auth.uid;
+    allow delete: if isGeneral();
+   }
+  }
+  match /schools/{schoolId}{
+   allow read: if canReadSchool(schoolId);
+   allow create: if isGeneral()&&request.resource.data.keys().hasOnly(['name','location','updatedAt','updatedBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
+   allow update: if isGeneral()&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','location','updatedAt','updatedBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
+   allow delete: if isGeneral();
+   match /classes/{classId}{
+    allow read: if canReadSchool(schoolId);
+    allow create,update: if isGeneral()&&request.resource.data.keys().hasOnly(['name','updatedAt','updatedBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.updatedBy==request.auth.uid;
+    allow delete: if isGeneral();
+   }
   }
   match /devices/{id}{
-   allow read: if activePanelUser()||isOwnDevice(id);
-   allow create: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status=='Pendiente'&&request.resource.data.profileLocked is bool&&!('policyMode' in request.resource.data)&&!('policyWhitelist' in request.resource.data));
-   allow update: if (canOperate()&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status==resource.data.status&&request.resource.data.profileLocked==true&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','recentUrls','updatedBy','profileLocked'])&&(resource.data.profileLocked!=true||(request.resource.data.name==resource.data.name&&request.resource.data.room==resource.data.room)));
-   allow delete: if isAdmin()||isOwner();
+   allow read: if (activePanelUser()&&('schoolId' in resource.data)&&canReadSchool(resource.data.schoolId))||isOwnDevice(id);
+   allow create: if (canOperateSchool(request.resource.data.schoolId)&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status=='Pendiente'&&request.resource.data.profileLocked is bool&&!('policyMode' in request.resource.data)&&!('policyWhitelist' in request.resource.data));
+   allow update: if (canOperateSchool(resource.data.schoolId)&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status==resource.data.status&&request.resource.data.profileLocked==true&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','recentUrls','updatedBy','profileLocked'])&&(resource.data.profileLocked!=true||(request.resource.data.name==resource.data.name&&request.resource.data.room==resource.data.room)));
+   allow delete: if canAdminSchool(resource.data.schoolId);
   }
   match /policies/{id}{
    allow read: if activePanelUser();
-   allow create: if canOperate()&&request.resource.data.keys().hasOnly(['name','group','notes','createdAt','createdBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.group is string&&request.resource.data.group.size()>0&&request.resource.data.group.size()<=80&&request.resource.data.notes is string&&request.resource.data.notes.size()<=500&&request.resource.data.createdBy==request.auth.uid;
+   allow create: if isGeneral()&&request.resource.data.keys().hasOnly(['name','group','notes','createdAt','createdBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.group is string&&request.resource.data.group.size()>0&&request.resource.data.group.size()<=80&&request.resource.data.notes is string&&request.resource.data.notes.size()<=500&&request.resource.data.createdBy==request.auth.uid;
    allow update: if false;
-   allow delete: if isAdmin()||isOwner();
+   allow delete: if isGeneral();
   }
   match /settings/{settingId}{
    allow read: if settingId in ['globalPolicy','groupPolicies']&&signedIn()&&(isAnonymousDeviceClient()||activePanelUser());
-   allow create,update: if settingId=='globalPolicy'&&canOperate()&&request.resource.data.keys().hasOnly(['mode','whitelist','blacklist','updatedAt','updatedBy'])&&request.resource.data.mode in ['free','block_all','whitelist']&&request.resource.data.whitelist is list&&request.resource.data.whitelist.size()<=50&&request.resource.data.blacklist is list&&request.resource.data.blacklist.size()<=50&&request.resource.data.updatedBy==request.auth.uid;
-   allow create,update: if settingId=='groupPolicies'&&canOperate()&&request.resource.data.keys().hasOnly(['groups','updatedAt','updatedBy'])&&request.resource.data.groups is list&&request.resource.data.groups.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
-   allow delete: if settingId in ['globalPolicy','groupPolicies']&&(isAdmin()||isOwner());
+   allow create,update: if settingId=='globalPolicy'&&isGeneral()&&request.resource.data.keys().hasOnly(['mode','whitelist','blacklist','updatedAt','updatedBy'])&&request.resource.data.mode in ['free','block_all','whitelist']&&request.resource.data.whitelist is list&&request.resource.data.whitelist.size()<=50&&request.resource.data.blacklist is list&&request.resource.data.blacklist.size()<=50&&request.resource.data.updatedBy==request.auth.uid;
+   allow create,update: if settingId=='groupPolicies'&&isGeneral()&&request.resource.data.keys().hasOnly(['groups','updatedAt','updatedBy'])&&request.resource.data.groups is list&&request.resource.data.groups.size()<=500&&request.resource.data.updatedBy==request.auth.uid;
+   allow delete: if settingId in ['globalPolicy','groupPolicies']&&isGeneral();
   }
  }
 }
