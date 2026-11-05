@@ -353,3 +353,13 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza el manifiesto a `4.0.2`.
 
 **Pendiente de prueba:** validar edición de roles, caducidad y cambio de ámbito con cuentas de prueba y reglas Firestore publicadas. No se ha probado en Firebase ni en Chromebooks reales.
+
+
+## Versión 4.0.3 — retirar acceso a un colegio
+
+- En **Gestión → Cuentas y asignaciones** se añade la acción **Quitar colegio** para retirar una asignación escolar concreta de una cuenta.
+- La operación elimina únicamente el documento `users/{uid}/schoolRoles/{schoolId}`; no elimina la cuenta de usuario, el colegio, las clases ni los dispositivos.
+- Se mantienen las protecciones para no modificar cuentas owner.
+- Se actualiza el manifiesto a `4.0.3`.
+
+**Pendiente de prueba:** comprobar con cuentas de prueba que el acceso desaparece solo en el colegio elegido y que el usuario conserva el acceso a sus otros colegios. No se ha probado contra Firebase ni en Chromebooks reales.
