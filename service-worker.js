@@ -209,6 +209,46 @@ async function syncDevice(overrides = {}) {
   return { uid: session.uid, name, room, lastSeen: now, currentUrl, profileLocked: nextProfileLocked };
 }
 
+
+async function recordRecentUrl(value) {
+  const urlValue = String(value || "").slice(0, 2048);
+  if (!/^https?:\\/\\//i.test(urlValue)) return;
+  const session = await getFirebaseSession();
+  const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
+  const headers = { "Authorization": `Bearer ${session.idToken}` };
+  const existing = await requestJson(documentUrl, { headers });
+  const raw = existing.fields?.recentUrls?.arrayValue?.values || [];
+  const history = raw.map(item => {
+    const fields = item.mapValue?.fields || {};
+    return {
+      url: fields.url?.stringValue || "",
+      visitedAt: fields.visitedAt?.timestampValue || ""
+    };
+  }).filter(item => /^https?:\\/\\//i.test(item.url));
+  const now = new Date().toISOString();
+  const next = history.filter(item => item.url !== urlValue);
+  next.unshift({ url: urlValue, visitedAt: now });
+  const values = next.slice(0, 30).map(item => ({
+    mapValue: { fields: {
+      url: { stringValue: item.url },
+      visitedAt: { timestampValue: item.url === urlValue ? now : item.visitedAt }
+    }}
+  }));
+  await requestJson(`${documentUrl}?updateMask.fieldPaths=recentUrls`, {
+    method: "PATCH",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { recentUrls: { arrayValue: { values } } } })
+  });
+}
+
+let recentUrlWriteQueue = Promise.resolve();
+chrome.webNavigation.onCommitted.addListener(details => {
+  if (details.frameId !== 0 || !/^https?:\\/\\//i.test(details.url)) return;
+  recentUrlWriteQueue = recentUrlWriteQueue
+    .then(() => recordRecentUrl(details.url))
+    .catch(error => console.warn("Focus Guard could not save URL history:", error.message || error));
+});
+
 async function syncRemotePolicy(deviceRoom = "") {
   const session = await getFirebaseSession();
   const headers = { "Authorization": `Bearer ${session.idToken}` };
@@ -284,6 +324,10 @@ async function reportSync() {
     const saved = await chrome.storage.local.get("deviceRoom");
     policySynced = await syncRemotePolicy(device?.room || saved.deviceRoom || "");
   } catch (error) { console.warn("Focus Guard could not refresh the navigation policy:", error.message || error); }
+  if (device?.currentUrl) {
+    recentUrlWriteQueue = recentUrlWriteQueue.then(() => recordRecentUrl(device.currentUrl))
+      .catch(error => console.warn("Focus Guard could not save current URL history:", error.message || error));
+  }
   if (device && policySynced) {
     await chrome.storage.local.set({ offlineLock: false, syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
     await applyRules();
