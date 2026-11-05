@@ -279,3 +279,18 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - La política se descarga en la sincronización periódica de la extensión.
 
 **Pendiente de despliegue y prueba:** publicar las reglas Firestore actualizadas, esperar a Render, y comprobar en equipos reales los cuatro modos y la prioridad sobre las políticas de grupo y global.
+
+
+## Versión 3.0.0 — nueva etapa de Focus Guard
+
+Se agrupan bajo una versión principal las funciones incorporadas en las últimas actualizaciones:
+
+- Historial de las últimas 30 URLs por dispositivo, visible desde el panel.
+- Protección frente a HTML insertado directamente en iframes.
+- Políticas individuales por dispositivo con prioridad sobre las políticas de grupo y global.
+- Modos de política individual: Heredar, Libertad total, Bloqueo total y Lista blanca.
+- Se mantiene el bloqueo de seguridad cuando no hay conexión.
+
+El manifiesto de Chrome se actualiza a **3.0.0**.
+
+**Despliegue:** publicar las reglas actuales de Firestore, recargar la extensión y comprobar las funciones en dispositivos reales. El cambio de numeración no sustituye estas tareas de despliegue y validación.
