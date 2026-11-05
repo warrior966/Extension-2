@@ -45,13 +45,13 @@ service cloud.firestore {
     allow read: if settingId=='navigationPolicy'&&(canReadSchool(schoolId)||deviceBelongsToSchool());
     allow create,update: if settingId=='navigationPolicy'&&canOperateSchool(schoolId)&&request.resource.data.keys().hasOnly(['mode','whitelist','blacklist','groups','updatedAt','updatedBy'])&&request.resource.data.mode in ['free','block_all','whitelist']&&request.resource.data.whitelist is list&&request.resource.data.whitelist.size()<=50&&request.resource.data.blacklist is list&&request.resource.data.blacklist.size()<=50&&request.resource.data.groups is list&&request.resource.data.groups.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
     allow delete: if settingId=='navigationPolicy'&&canAdminSchool(schoolId);
-    match /policies/{policyId}{
+   }
+   match /policies/{policyId}{
     allow read: if canReadSchool(schoolId);
     allow create: if canOperateSchool(schoolId)&&request.resource.data.keys().hasOnly(['name','notes','createdAt','createdBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=80&&request.resource.data.notes is string&&request.resource.data.notes.size()<=500&&request.resource.data.createdBy==request.auth.uid;
     allow update: if false;
     allow delete: if canAdminSchool(schoolId);
    }
-  }
   }
   match /devices/{id}{
    allow read: if isGeneral()||(activePanelUser()&&('schoolId' in resource.data)&&canReadSchool(resource.data.schoolId))||isOwnDevice(id);
