@@ -254,7 +254,7 @@ $("deviceRows").addEventListener("click", async e => {
       $("devicePolicyId").value = d.id;
       $("devicePolicyTitle").textContent = "Política: " + d.name;
       $("devicePolicyMode").value = ["inherit","free","block_all","whitelist"].includes(d.policyMode) ? d.policyMode : "inherit";
-      $("devicePolicyWhitelist").value = Array.isArray(d.policyWhitelist) ? d.policyWhitelist.join("\\n") : "";
+      $("devicePolicyWhitelist").value = Array.isArray(d.policyWhitelist) ? d.policyWhitelist.join("\n") : "";
       $("devicePolicyStatus").textContent = "";
       $("devicePolicyDialog").showModal();
     }
