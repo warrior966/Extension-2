@@ -82,7 +82,12 @@ enabledInput.addEventListener("change", async () => {
 });
 form.addEventListener("submit", async event => {
   event.preventDefault();
-  const domain = normalizeDomain(domainInput.value);
+  const rawSite = domainInput.value.trim();
+  if (/<\\/?(?:!doctype|html|iframe|script|body|head|div|form|svg)\\b|^<\\s*!/i.test(rawSite)) {
+    message.textContent = "No se admite código HTML en la lista de sitios. Introduce un dominio web.";
+    return;
+  }
+  const domain = normalizeDomain(rawSite);
   if (!domain) { message.textContent = "Introduce un dominio válido, como example.com."; return; }
   const { domains, remotePolicy } = await getSettings();
   if (["free", "block_all", "whitelist"].includes(remotePolicy?.mode)) { message.textContent = "La navegación está gestionada desde el panel de administración."; return; }
