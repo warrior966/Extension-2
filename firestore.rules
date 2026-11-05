@@ -8,6 +8,7 @@ service cloud.firestore {
   function activePanelUser(){return hasUser()&&(!('expiresAt' in userData())||userData().expiresAt==null||userData().expiresAt>request.time);}
   function globalRole(){return hasUser()?(('globalRole' in userData())?userData().globalRole:(('role' in userData()&&userData().role=='owner')?'owner':'')):'';}
   function isOwner(){return activePanelUser()&&globalRole()=='owner';}
+  function isTargetOwner(uid){return exists(userPath(uid))&&((('globalRole' in get(userPath(uid)).data)&&get(userPath(uid)).data.globalRole=='owner')||(('role' in get(userPath(uid)).data)&&get(userPath(uid)).data.role=='owner'));}
   function isGeneral(){return activePanelUser()&&globalRole() in ['owner','general_admin'];}
   function schoolRolePath(uid,sid){return /databases/$(database)/documents/users/$(uid)/schoolRoles/$(sid);}
   function hasSchoolRole(sid){return activePanelUser()&&exists(schoolRolePath(request.auth.uid,sid));}
@@ -26,8 +27,8 @@ service cloud.firestore {
    allow delete: if false;
    match /schoolRoles/{schoolId}{
     allow read: if activePanelUser()&&(request.auth.uid==uid||isGeneral());
-    allow create,update: if isGeneral()&&exists(/databases/$(database)/documents/schools/$(schoolId))&&request.resource.data.keys().hasOnly(['role','schoolId','updatedAt','updatedBy'])&&request.resource.data.role in ['admin','operator','viewer']&&request.resource.data.schoolId==schoolId&&request.resource.data.updatedBy==request.auth.uid;
-    allow delete: if isGeneral();
+    allow create,update: if isGeneral()&&!isTargetOwner(uid)&&exists(/databases/$(database)/documents/schools/$(schoolId))&&request.resource.data.keys().hasOnly(['role','schoolId','updatedAt','updatedBy'])&&request.resource.data.role in ['admin','operator','viewer']&&request.resource.data.schoolId==schoolId&&request.resource.data.updatedBy==request.auth.uid;
+    allow delete: if isGeneral()&&!isTargetOwner(uid);
    }
   }
   match /schools/{schoolId}{
