@@ -246,3 +246,24 @@ Cada vez que se realice un cambio solicitado en el proyecto:
 - Se mantiene el formato PNG requerido por los iconos del manifiesto de Chrome.
 - Se actualiza `manifest.json` a `2.2.4`.
 
+
+
+## Versión 2.2.5 — historial de navegación y protección de iframes
+
+### Historial de URLs
+- Se añade al panel el botón **Últimas 30 URLs** para cada dispositivo, manteniendo el botón **Ver URL** y las demás acciones existentes.
+- La extensión registra las últimas 30 direcciones HTTP/HTTPS de navegación principal por perfil de Chrome, con fecha y hora.
+- El historial se conserva en el documento del dispositivo en Firestore y se consulta desde el panel.
+- Se amplían los permisos de la extensión con `webNavigation` para detectar cambios de dirección.
+
+### Protección de iframes y entrada de sitios
+- Se bloquean los iframes que reciben HTML directamente mediante `srcdoc`, `data:text/html` o marcado HTML introducido como origen.
+- Los iframes que apuntan a una URL HTTP/HTTPS siguen sujetos a la política existente: los dominios permitidos pueden cargar y los no permitidos se bloquean mediante DNR.
+- El popup rechaza código HTML pegado en la lista de sitios y solicita un dominio válido.
+
+### Archivos modificados
+- `service-worker.js`, `manifest.json`, `iframe-guard.js`, `firestore.rules`, `admin/index.html`, `admin/admin.js`, `admin/admin.css`, `popup.js`.
+
+**Privacidad:** el historial guarda URLs completas, que pueden incluir rutas o parámetros de página. Debe informarse a los usuarios de los dispositivos y limitarse el acceso al panel a personal autorizado.
+
+**Pendiente de despliegue y prueba:** publicar las reglas actualizadas de Firestore, recargar la extensión para aceptar el permiso `webNavigation`, y comprobar en un Chromebook que el historial se registra, se limita a 30 entradas y aparece en el panel. También deben probarse los casos de iframe con URL permitida, URL no permitida y HTML insertado.
