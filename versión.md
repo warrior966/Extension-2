@@ -384,3 +384,15 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza el manifiesto a `4.0.5`.
 
 **Pendiente de prueba:** publicar las reglas actualizadas y probar con cuentas `operator` y `admin` que la política global no se puede guardar como operador y que la política del grupo sí se guarda desde la pantalla de sus dispositivos. No se ha probado contra Firebase ni en Chromebooks reales.
+
+
+## Versión 4.0.6 — registro inicial por alumno, colegio y clase
+
+- El popup solicita el nombre del alumno, el colegio y una clase del colegio seleccionado.
+- El desplegable de clases se carga según el colegio elegido; no se permite guardar sin completar los tres datos.
+- El nombre del alumno se guarda como responsable del dispositivo y el grupo seleccionado determina la clase y la política de navegación correspondiente.
+- Al guardar, el perfil queda bloqueado en Firestore. El alumno no puede cambiar nombre, colegio ni clase desde el popup; el personal autorizado puede desbloquearlo desde el panel.
+- Se permite a la sesión anónima de la extensión consultar únicamente los documentos de colegios y clases para mostrar las opciones del registro; no obtiene permisos de escritura sobre esos datos.
+- Se actualiza el manifiesto a 4.0.6.
+
+**Pendiente de despliegue y prueba:** publicar las reglas Firestore actualizadas y recargar la extensión. Comprobar el registro, el filtrado de clases por colegio, la asignación del dispositivo, el bloqueo y el desbloqueo desde el panel. No se ha probado contra Firebase ni en Chromebooks reales.
