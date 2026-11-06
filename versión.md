@@ -374,3 +374,13 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - No se elimina el usuario de Firebase Authentication, ni ningún colegio, clase o dispositivo; el acceso al panel queda revocado.
 
 **Pendiente de prueba:** validar la desactivación, el rechazo de inicio de sesión, la reactivación y las restricciones de rol con Firebase real y reglas publicadas. No se ha probado en Firebase ni en Chromebooks reales.
+
+
+## Versión 4.0.5 — permisos de política y política de grupo contextual
+
+- El rol `operator` ya no puede cambiar la política global del colegio ni sus listas blanca/negra; la interfaz lo deja en solo lectura y Firestore exige rol `admin` o superior para modificar esos campos.
+- Los operadores conservan la capacidad de gestionar la política de su grupo/clase. Las reglas de Firestore limitan sus escrituras a los campos `groups`, `updatedAt` y `updatedBy`, impidiendo que alteren la política global aunque manipulen el cliente.
+- La configuración de política por grupo se mueve desde la pantalla del colegio a la pantalla de dispositivos de la clase seleccionada. Se configura directamente el grupo que se está consultando, sin selector de clase.
+- Se actualiza el manifiesto a `4.0.5`.
+
+**Pendiente de prueba:** publicar las reglas actualizadas y probar con cuentas `operator` y `admin` que la política global no se puede guardar como operador y que la política del grupo sí se guarda desde la pantalla de sus dispositivos. No se ha probado contra Firebase ni en Chromebooks reales.
