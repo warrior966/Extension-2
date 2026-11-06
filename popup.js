@@ -177,6 +177,7 @@ async function init() {
   try {
     await loadSchools(settings.deviceSchoolId || "");
     if (settings.deviceClassId) classSelect.value = settings.deviceClassId;
+    renderDeviceLock(settings);
   } catch (error) {
     schoolSelect.replaceChildren(new Option("No se pudieron cargar los colegios", ""));
     syncStatus.textContent = "No se pudo cargar el registro: " + String(error.message || error);
