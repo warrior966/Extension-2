@@ -396,3 +396,12 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza el manifiesto a 4.0.6.
 
 **Pendiente de despliegue y prueba:** publicar las reglas Firestore actualizadas y recargar la extensión. Comprobar el registro, el filtrado de clases por colegio, la asignación del dispositivo, el bloqueo y el desbloqueo desde el panel. No se ha probado contra Firebase ni en Chromebooks reales.
+
+
+## Versión 4.0.7 — permitir sincronización de perfiles aún no bloqueados
+
+- Se corrige la regla de actualización del documento propio del dispositivo: una sesión anónima puede sincronizar mientras el perfil siga desbloqueado, tanto antes como durante el registro inicial.
+- Cuando el perfil ya está bloqueado, se mantienen las comprobaciones que impiden cambiar el nombre del alumno, el colegio o la clase.
+- Se actualiza el manifiesto a `4.0.7`.
+
+**Pendiente de despliegue y prueba:** publicar las reglas Firestore, recargar la extensión y comprobar la sincronización de un dispositivo existente y el registro inicial. No se ha probado contra Firebase ni en Chromebooks reales.
