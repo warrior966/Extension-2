@@ -405,3 +405,13 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza el manifiesto a `4.0.7`.
 
 **Pendiente de despliegue y prueba:** publicar las reglas Firestore, recargar la extensión y comprobar la sincronización de un dispositivo existente y el registro inicial. No se ha probado contra Firebase ni en Chromebooks reales.
+
+
+## Versión 4.0.8 — acceso al panel desde DevTools
+
+- Se añade el comando `login()` al contexto global del Service Worker.
+- Al ejecutarlo, abre el panel HTTPS de Focus Guard o enfoca la pestaña existente.
+- Las credenciales se introducen en el formulario oficial del panel; no se solicitan ni almacenan desde DevTools y se mantienen las comprobaciones de Firebase y del rol de la cuenta.
+- Se actualiza el manifiesto a `4.0.8`.
+
+**Pendiente de prueba:** recargar la extensión y ejecutar `login()` en la consola del Service Worker. Confirmar que abre el panel y que el inicio de sesión sigue validando la cuenta con Firebase. No se ha probado en un Chromebook real.
