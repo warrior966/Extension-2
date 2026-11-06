@@ -170,10 +170,10 @@ async function syncDevice(overrides = {}) {
   const profileLocked = existingFields?.profileLocked?.booleanValue === true;
   const isUserSave = ["studentName","schoolId","classId","name","room"].some(k => Object.prototype.hasOwnProperty.call(overrides,k));
   if (profileLocked && isUserSave) throw new Error("Los datos están bloqueados por el centro. Solicita al administrador que los desbloquee desde el panel.");
-  const schoolId = existingFields?.schoolId?.stringValue || String(overrides.schoolId ?? saved.deviceSchoolId ?? "");
-  const classId = existingFields?.classId?.stringValue || String(overrides.classId ?? saved.deviceClassId ?? "");
-  const studentName = existingFields?.owner?.stringValue || String(overrides.studentName ?? saved.studentName ?? "");
-  const room = existingFields?.room?.stringValue || String(overrides.className ?? saved.deviceRoom ?? "");
+  const schoolId = isUserSave ? String(overrides.schoolId || "") : (existingFields?.schoolId?.stringValue || saved.deviceSchoolId || "");
+  const classId = isUserSave ? String(overrides.classId || "") : (existingFields?.classId?.stringValue || saved.deviceClassId || "");
+  const studentName = isUserSave ? String(overrides.studentName || "") : (existingFields?.owner?.stringValue || saved.studentName || "");
+  const room = isUserSave ? String(overrides.className || "") : (existingFields?.room?.stringValue || saved.deviceRoom || "");
   if (isUserSave && (!studentName.trim() || !schoolId || !classId || !room.trim())) throw new Error("Completa tu nombre, colegio y clase.");
   const name = existingFields?.name?.stringValue || saved.deviceName || `Chromebook-${session.uid.slice(0,6)}`;
   const lockAfterSave = isUserSave && Boolean(studentName.trim()) && Boolean(schoolId) && Boolean(classId);
