@@ -32,7 +32,7 @@ service cloud.firestore {
    }
   }
   match /schools/{schoolId}{
-   allow read: if canReadSchool(schoolId);
+   allow read: if canReadSchool(schoolId)||isAnonymousDeviceClient();
    allow create: if isGeneral()&&request.resource.data.keys().hasOnly(['name','location','updatedAt','updatedBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
    allow update: if isGeneral()&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','location','updatedAt','updatedBy'])&&request.resource.data.name is string&&request.resource.data.name.size()>0&&request.resource.data.name.size()<=100&&request.resource.data.updatedBy==request.auth.uid;
    allow delete: if isGeneral();
@@ -58,7 +58,7 @@ service cloud.firestore {
   match /devices/{id}{
    allow read: if isGeneral()||(activePanelUser()&&('schoolId' in resource.data)&&canReadSchool(resource.data.schoolId))||isOwnDevice(id);
    allow create: if (('schoolId' in request.resource.data)&&canOperateSchool(request.resource.data.schoolId)&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status=='Pendiente'&&request.resource.data.profileLocked is bool&&!('policyMode' in request.resource.data)&&!('policyWhitelist' in request.resource.data));
-   allow update: if (isGeneral()&&validDevice())||(('schoolId' in resource.data)&&canOperateSchool(resource.data.schoolId)&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status==resource.data.status&&request.resource.data.profileLocked==true&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','recentUrls','updatedBy','profileLocked'])&&(resource.data.profileLocked!=true||(request.resource.data.name==resource.data.name&&request.resource.data.room==resource.data.room)));
+   allow update: if (isGeneral()&&validDevice())||(('schoolId' in resource.data)&&canOperateSchool(resource.data.schoolId)&&validDevice())||(isOwnDevice(id)&&validChromeDevice()&&request.resource.data.status==resource.data.status&&request.resource.data.profileLocked==true&&request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','room','owner','platform','status','updatedAt','lastSeen','currentUrl','recentUrls','updatedBy','profileLocked'])&&(resource.data.profileLocked!=true||(request.resource.data.name==resource.data.name&&request.resource.data.room==resource.data.room&&request.resource.data.owner==resource.data.owner&&request.resource.data.schoolId==resource.data.schoolId&&request.resource.data.classId==resource.data.classId)));
    allow delete: if isGeneral()||(('schoolId' in resource.data)&&canAdminSchool(resource.data.schoolId));
   }
   match /policies/{id}{
