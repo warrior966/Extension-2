@@ -20,14 +20,16 @@
 
     <section class="device-card">
       <h2>Este perfil de Chromebook</h2>
-      <label for="device-name">Nombre del perfil</label>
-      <input id="device-name" maxlength="80" placeholder="Chromebook-Aula-01">
-      <label for="device-room">Aula / grupo</label>
-      <input id="device-room" maxlength="80" placeholder="Aula 1">
+      <label for="student-name">Tu nombre</label>
+      <input id="student-name" maxlength="80" autocomplete="name" placeholder="Nombre y apellidos">
+      <label for="device-school">Colegio</label>
+      <select id="device-school" required><option value="">Cargando colegios…</option></select>
+      <label for="device-class">Clase</label>
+      <select id="device-class" required disabled><option value="">Primero elige un colegio</option></select>
       <button id="sync-device" type="button">Guardar y sincronizar</button>
       <p id="device-lock-note" class="hint" hidden>Datos bloqueados por el centro. Solo un administrador puede desbloquearlos desde el panel.</p>
       <p id="sync-status" role="status" aria-live="polite">Comprobando conexión con Firebase…</p>
-      <p class="hint">Cada perfil de Chrome se registra por separado. No se recopila el nombre de la persona que inicia sesión en ChromeOS.</p>
+      <p class="hint">Cada perfil de Chrome se registra por separado. El nombre que escribas se mostrará al personal autorizado del colegio.</p>
     </section>
 
     <section>
