@@ -145,68 +145,64 @@ async function getFirebaseSession() {
   return session;
 }
 
+async function listFirestoreDocuments(path) {
+  const session = await getFirebaseSession();
+  const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}?pageSize=100`;
+  const data = await requestJson(url, { headers: { "Authorization": `Bearer ${session.idToken}` } });
+  return (data.documents || []).map(doc => {
+    const id = doc.name.split("/").pop();
+    return { id, name: doc.fields?.name?.stringValue || id };
+  }).sort((a,b) => a.name.localeCompare(b.name, "es"));
+}
 async function syncDevice(overrides = {}) {
-  const saved = await chrome.storage.local.get(["deviceName", "deviceRoom"]);
+  const saved = await chrome.storage.local.get(["deviceName", "deviceRoom", "studentName", "deviceSchoolId", "deviceClassId"]);
   const session = await getFirebaseSession();
   const documentUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/devices/${session.uid}`;
   let existingFields = null;
   let deviceStatus = "Pendiente";
   try {
-    const existing = await requestJson(documentUrl, {
-      headers: { "Authorization": `Bearer ${session.idToken}` }
-    });
+    const existing = await requestJson(documentUrl, { headers: { "Authorization": `Bearer ${session.idToken}` } });
     existingFields = existing.fields || {};
     deviceStatus = existingFields.status?.stringValue || "Pendiente";
   } catch (error) {
     if (!/NOT_FOUND|not found/i.test(String(error.message))) throw error;
   }
-
   const profileLocked = existingFields?.profileLocked?.booleanValue === true;
-  const isUserSave = Object.prototype.hasOwnProperty.call(overrides, "name") ||
-    Object.prototype.hasOwnProperty.call(overrides, "room");
-  if (profileLocked && isUserSave) {
-    throw new Error("Los datos están bloqueados por el centro. Solicita al administrador que los desbloquee desde el panel.");
-  }
-  const serverName = existingFields?.name?.stringValue || "";
-  const serverRoom = existingFields?.room?.stringValue || "";
-  const name = serverName && !isUserSave
-    ? serverName
-    : (String(overrides.name ?? saved.deviceName ?? "").trim().slice(0, 80) || `Chromebook-${session.uid.slice(0, 6)}`);
-  const room = serverRoom && !isUserSave
-    ? serverRoom
-    : (String(overrides.room ?? saved.deviceRoom ?? "Sin asignar").trim().slice(0, 80) || "Sin asignar");
-  const lockAfterSave = isUserSave && Boolean(String(overrides.name || "").trim()) && Boolean(String(overrides.room || "").trim());
+  const isUserSave = ["studentName","schoolId","classId","name","room"].some(k => Object.prototype.hasOwnProperty.call(overrides,k));
+  if (profileLocked && isUserSave) throw new Error("Los datos están bloqueados por el centro. Solicita al administrador que los desbloquee desde el panel.");
+  const schoolId = existingFields?.schoolId?.stringValue || String(overrides.schoolId ?? saved.deviceSchoolId ?? "");
+  const classId = existingFields?.classId?.stringValue || String(overrides.classId ?? saved.deviceClassId ?? "");
+  const studentName = existingFields?.owner?.stringValue || String(overrides.studentName ?? saved.studentName ?? "");
+  const room = existingFields?.room?.stringValue || String(overrides.className ?? saved.deviceRoom ?? "");
+  if (isUserSave && (!studentName.trim() || !schoolId || !classId || !room.trim())) throw new Error("Completa tu nombre, colegio y clase.");
+  const name = existingFields?.name?.stringValue || saved.deviceName || `Chromebook-${session.uid.slice(0,6)}`;
+  const lockAfterSave = isUserSave && Boolean(studentName.trim()) && Boolean(schoolId) && Boolean(classId);
   const nextProfileLocked = lockAfterSave ? true : profileLocked;
-  await chrome.storage.local.set({ deviceName: name, deviceRoom: room, profileLocked: nextProfileLocked });
-
+  await chrome.storage.local.set({
+    deviceName: name, deviceRoom: room || "Sin asignar", studentName,
+    deviceSchoolId: schoolId, deviceClassId: classId, profileLocked: nextProfileLocked
+  });
   const now = new Date().toISOString();
   let currentUrl = "";
   try {
     const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    if (activeTab?.url && /^https?:\/\//i.test(activeTab.url)) currentUrl = activeTab.url.slice(0, 2048);
-  } catch (error) {
-    console.warn("Focus Guard could not read the active tab URL:", error.message || error);
-  }
+    if (activeTab?.url && /^https?:\/\//i.test(activeTab.url)) currentUrl = activeTab.url.slice(0,2048);
+  } catch (error) { console.warn("Focus Guard could not read the active tab URL:", error.message || error); }
   const fields = {
-    name: { stringValue: name },
-    room: { stringValue: room },
-    owner: { stringValue: "Perfil Chrome compartido" },
-    platform: { stringValue: "ChromeOS" },
-    status: { stringValue: deviceStatus },
-    updatedAt: { timestampValue: now },
-    lastSeen: { timestampValue: now },
-    currentUrl: { stringValue: currentUrl },
-    updatedBy: { stringValue: session.uid },
-    profileLocked: { booleanValue: nextProfileLocked }
+    name: { stringValue: name }, room: { stringValue: room || "Sin asignar" },
+    owner: { stringValue: studentName || "Sin indicar" }, platform: { stringValue: "ChromeOS" },
+    status: { stringValue: deviceStatus }, updatedAt: { timestampValue: now },
+    lastSeen: { timestampValue: now }, currentUrl: { stringValue: currentUrl },
+    updatedBy: { stringValue: session.uid }, profileLocked: { booleanValue: nextProfileLocked },
+    ...(schoolId ? { schoolId: { stringValue: schoolId } } : {}),
+    ...(classId ? { classId: { stringValue: classId } } : {})
   };
   const mask = Object.keys(fields).map(key => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join("&");
-  const url = `${documentUrl}?${mask}`;
-  await requestJson(url, {
-    method: "PATCH",
-    headers: { "Authorization": `Bearer ${session.idToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ fields })
+  await requestJson(`${documentUrl}?${mask}`, {
+    method:"PATCH", headers:{ "Authorization":`Bearer ${session.idToken}`, "Content-Type":"application/json" },
+    body:JSON.stringify({fields})
   });
-  return { uid: session.uid, name, room, lastSeen: now, currentUrl, profileLocked: nextProfileLocked, schoolId: existingFields?.schoolId?.stringValue || "", classId: existingFields?.classId?.stringValue || "" };
+  return { uid:session.uid, name, room, owner:studentName, lastSeen:now, currentUrl, profileLocked:nextProfileLocked, schoolId, classId };
 }
 
 
@@ -412,8 +408,21 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && (changes.domains || changes.enabled || changes.remotePolicy)) applyRules().catch(console.error);
 });
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "GET_ONBOARDING_SCHOOLS") {
+    listFirestoreDocuments("schools").then(schools => sendResponse({ok:true,schools}))
+      .catch(error => sendResponse({ok:false,error:String(error.message || error)}));
+    return true;
+  }
+  if (message?.type === "GET_ONBOARDING_CLASSES") {
+    if (!/^[A-Za-z0-9_-]{1,150}$/.test(String(message.schoolId || ""))) {
+      sendResponse({ok:false,error:"Colegio no válido."}); return false;
+    }
+    listFirestoreDocuments(`schools/${encodeURIComponent(message.schoolId)}/classes`).then(classes => sendResponse({ok:true,classes}))
+      .catch(error => sendResponse({ok:false,error:String(error.message || error)}));
+    return true;
+  }
   if (message?.type !== "SYNC_DEVICE") return;
-  syncDevice({ name: message.name, room: message.room }).then(async device => {
+  syncDevice({ studentName: message.studentName, schoolId: message.schoolId, classId: message.classId, className: message.className }).then(async device => {
     await chrome.storage.local.set({ syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
     sendResponse({ ok: true, device });
   }).catch(async error => {
