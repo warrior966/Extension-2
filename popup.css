@@ -39,3 +39,6 @@ footer { border-top: 1px solid #e2e7f0; margin-top: 15px; padding-top: 12px; col
 #sync-status { font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; margin: 8px 0 0; color: #526079; }
 #sync-status[data-state="ok"] { color: #167647; }
 #sync-status[data-state="error"] { color: #b42318; }
+
+.device-card select { width: 100%; display: block; border: 1px solid #d7deea; border-radius: 9px; padding: 10px; font-size: 13px; background: white; color: #172033; }
+.device-card select:disabled, .device-card input:disabled { opacity: .7; background: #f1f3f7; }
