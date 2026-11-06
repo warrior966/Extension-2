@@ -3,22 +3,6 @@ const FIRST_RULE_ID = 1000;
 const FIREBASE_API_KEY = "AIzaSyAHpkWaFwwI-QJWd06Dzkt6kc2tJXSkdA0";
 const FIREBASE_PROJECT_ID = "fidelazion";
 const SESSION_KEY = "fgFirebaseSession";
-const ADMIN_PANEL_URL = "https://extension-2-85.onrender.com/";
-
-// Ejecuta login() desde la consola del Service Worker para abrir el acceso oficial.
-// La contraseña se introduce únicamente en el formulario HTTPS del panel, nunca en DevTools.
-globalThis.login = async function login() {
-  const tabs = await chrome.tabs.query({ url: ADMIN_PANEL_URL + "*" });
-  if (tabs.length && tabs[0].id != null) {
-    await chrome.tabs.update(tabs[0].id, { active: true });
-    if (tabs[0].windowId != null) await chrome.windows.update(tabs[0].windowId, { focused: true });
-    return "Panel de Focus Guard enfocado. Inicia sesión en el formulario.";
-  }
-  await chrome.tabs.create({ url: ADMIN_PANEL_URL, active: true });
-  return "Panel de Focus Guard abierto. Introduce tu correo y contraseña en el formulario.";
-};
-
-
 function normalizeDomain(value) {
   let domain = String(value || "").trim().toLowerCase();
   domain = domain.replace(/^https?:\/\//, "").split(/[/?#]/, 1)[0];
