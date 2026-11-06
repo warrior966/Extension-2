@@ -422,7 +422,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
   if (message?.type !== "SYNC_DEVICE") return;
-  syncDevice({ studentName: message.studentName, schoolId: message.schoolId, classId: message.classId, className: message.className }).then(async device => {
+  const overrides = {};
+  for (const key of ["studentName", "schoolId", "classId", "className"]) {
+    if (message[key] !== undefined) overrides[key] = message[key];
+  }
+  syncDevice(overrides).then(async device => {
     await chrome.storage.local.set({ syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
     sendResponse({ ok: true, device });
   }).catch(async error => {
