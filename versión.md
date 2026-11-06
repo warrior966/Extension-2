@@ -415,3 +415,12 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza el manifiesto a `4.0.8`.
 
 **Pendiente de prueba:** recargar la extensión y ejecutar `login()` en la consola del Service Worker. Confirmar que abre el panel y que el inicio de sesión sigue validando la cuenta con Firebase. No se ha probado en un Chromebook real.
+
+
+## Versión 4.0.9 — retirada del comando de acceso desde DevTools
+
+- Se elimina el comando global `login()` del Service Worker y la URL del panel asociada a ese comando.
+- El acceso al panel vuelve a realizarse únicamente mediante su flujo habitual de inicio de sesión.
+- Se actualiza el manifiesto a `4.0.9`.
+
+**Pendiente de prueba:** recargar la extensión y comprobar que `login()` ya no está definido en la consola del Service Worker y que el acceso habitual al panel sigue funcionando.
