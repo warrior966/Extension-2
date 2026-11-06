@@ -6,8 +6,9 @@ const domainInput = document.querySelector("#domain");
 const list = document.querySelector("#domains");
 const empty = document.querySelector("#empty");
 const message = document.querySelector("#message");
-const deviceNameInput = document.querySelector("#device-name");
-const deviceRoomInput = document.querySelector("#device-room");
+const studentNameInput = document.querySelector("#student-name");
+const schoolSelect = document.querySelector("#device-school");
+const classSelect = document.querySelector("#device-class");
 const syncButton = document.querySelector("#sync-device");
 const syncStatus = document.querySelector("#sync-status");
 
@@ -19,12 +20,13 @@ function normalizeDomain(value) {
   return domain;
 }
 async function getSettings() {
-  return chrome.storage.local.get({ domains: [], enabled: false, remotePolicy: null, deviceName: "", deviceRoom: "Sin asignar", profileLocked: false, syncStatus: "", syncError: "", lastSyncAt: "" });
+  return chrome.storage.local.get({ domains: [], enabled: false, remotePolicy: null, deviceName: "", deviceRoom: "Sin asignar", studentName: "", deviceSchoolId: "", deviceClassId: "", profileLocked: false, syncStatus: "", syncError: "", lastSyncAt: "" });
 }
 function renderDeviceLock(settings) {
   const locked = settings.profileLocked === true;
-  deviceNameInput.disabled = locked;
-  deviceRoomInput.disabled = locked;
+  studentNameInput.disabled = locked;
+  schoolSelect.disabled = locked;
+  classSelect.disabled = locked;
   syncButton.disabled = locked;
   document.querySelector("#device-lock-note").hidden = !locked;
   if (locked) syncStatus.textContent = "Datos del perfil bloqueados por el centro.";
@@ -96,25 +98,66 @@ form.addEventListener("submit", async event => {
   await chrome.storage.local.set({ domains: [...domains, domain] });
   domainInput.value = ""; message.textContent = ""; await render();
 });
+async function loadSchools(selectedSchoolId = "") {
+  schoolSelect.replaceChildren(new Option("Cargando colegios…", ""));
+  classSelect.replaceChildren(new Option("Primero elige un colegio", ""));
+  classSelect.disabled = true;
+  const response = await chrome.runtime.sendMessage({ type: "GET_ONBOARDING_SCHOOLS" });
+  if (!response?.ok) throw new Error(response?.error || "No se pudieron cargar los colegios");
+  schoolSelect.replaceChildren(new Option("Selecciona tu colegio", ""));
+  for (const school of response.schools || []) schoolSelect.add(new Option(school.name, school.id));
+  if (selectedSchoolId && (response.schools || []).some(s => s.id === selectedSchoolId)) {
+    schoolSelect.value = selectedSchoolId;
+    await loadClasses(selectedSchoolId);
+  }
+}
+async function loadClasses(schoolId, selectedClassId = "") {
+  classSelect.replaceChildren(new Option("Cargando clases…", ""));
+  classSelect.disabled = true;
+  if (!schoolId) {
+    classSelect.replaceChildren(new Option("Primero elige un colegio", ""));
+    return;
+  }
+  const response = await chrome.runtime.sendMessage({ type: "GET_ONBOARDING_CLASSES", schoolId });
+  if (!response?.ok) throw new Error(response?.error || "No se pudieron cargar las clases");
+  classSelect.replaceChildren(new Option("Selecciona tu clase", ""));
+  for (const item of response.classes || []) classSelect.add(new Option(item.name, item.id));
+  classSelect.disabled = false;
+  if (selectedClassId && (response.classes || []).some(c => c.id === selectedClassId)) classSelect.value = selectedClassId;
+}
+schoolSelect.addEventListener("change", async () => {
+  try { await loadClasses(schoolSelect.value); }
+  catch (error) {
+    classSelect.replaceChildren(new Option("Error al cargar clases", ""));
+    syncStatus.textContent = String(error.message || error);
+    syncStatus.dataset.state = "error";
+  }
+});
 syncButton.addEventListener("click", async () => {
-  if (!deviceNameInput.value.trim() || !deviceRoomInput.value.trim()) {
-    syncStatus.textContent = "Completa el nombre del perfil y el aula/grupo antes de sincronizar.";
+  const studentName = studentNameInput.value.trim();
+  const schoolId = schoolSelect.value;
+  const classId = classSelect.value;
+  const schoolName = schoolSelect.selectedOptions[0]?.textContent || "";
+  const className = classSelect.selectedOptions[0]?.textContent || "";
+  if (!studentName || !schoolId || !classId) {
+    syncStatus.textContent = "Escribe tu nombre y selecciona el colegio y la clase.";
     syncStatus.dataset.state = "error";
     return;
   }
-  syncButton.disabled = true; syncStatus.textContent = "Sincronizando…";
+  syncButton.disabled = true; syncStatus.textContent = "Guardando y sincronizando…";
   try {
     const response = await chrome.runtime.sendMessage({
-      type: "SYNC_DEVICE",
-      name: deviceNameInput.value.trim(),
-      room: deviceRoomInput.value.trim()
+      type: "SYNC_DEVICE", studentName, schoolId, classId, schoolName, className
     });
     if (!response?.ok) throw new Error(response?.error || "No se pudo sincronizar");
-    syncStatus.textContent = response.device?.profileLocked
-      ? "Datos guardados y bloqueados por el centro."
-      : "Sincronizado correctamente.";
+    syncStatus.textContent = "Datos guardados y bloqueados por el centro.";
     syncStatus.dataset.state = "ok";
-    if (response.device) await chrome.storage.local.set({ profileLocked: response.device.profileLocked === true });
+    if (response.device) await chrome.storage.local.set({
+      profileLocked: response.device.profileLocked === true,
+      studentName: response.device.owner || studentName,
+      deviceSchoolId: response.device.schoolId || schoolId,
+      deviceClassId: response.device.classId || classId
+    });
   } catch (error) {
     syncStatus.textContent = "No se pudo sincronizar: " + String(error.message || error);
     syncStatus.dataset.state = "error";
@@ -128,16 +171,24 @@ syncButton.addEventListener("click", async () => {
 async function init() {
   await render();
   const settings = await getSettings();
-  deviceNameInput.value = settings.deviceName;
-  deviceRoomInput.value = settings.deviceRoom;
+  studentNameInput.value = settings.studentName || "";
   renderDeviceLock(settings);
   renderSyncStatus(settings);
+  try {
+    await loadSchools(settings.deviceSchoolId || "");
+    if (settings.deviceClassId) classSelect.value = settings.deviceClassId;
+  } catch (error) {
+    schoolSelect.replaceChildren(new Option("No se pudieron cargar los colegios", ""));
+    syncStatus.textContent = "No se pudo cargar el registro: " + String(error.message || error);
+    syncStatus.dataset.state = "error";
+  }
   try {
     chrome.runtime.sendMessage({type:"SYNC_DEVICE"}).then(async response => {
       const latest = await getSettings();
       if (response?.ok && response.device) {
-        deviceNameInput.value = response.device.name || latest.deviceName;
-        deviceRoomInput.value = response.device.room || latest.deviceRoom;
+        studentNameInput.value = response.device.owner || latest.studentName || "";
+        if (response.device.schoolId) await loadSchools(response.device.schoolId);
+        if (response.device.classId) classSelect.value = response.device.classId;
       }
       renderDeviceLock(latest);
       renderSyncStatus(latest);
