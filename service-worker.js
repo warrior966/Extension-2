@@ -245,7 +245,7 @@ chrome.webNavigation.onCommitted.addListener(details => {
     .catch(error => console.warn("Focus Guard could not save URL history:", error.message || error));
 });
 
-async function syncRemotePolicy(deviceRoom = "", schoolId = "") {
+async function syncRemotePolicy(deviceRoom = "", schoolId = "", clearOfflineLock = false) {
   const session = await getFirebaseSession();
   const headers = { "Authorization": `Bearer ${session.idToken}` };
   let selectedPolicy = null;
@@ -320,6 +320,7 @@ async function syncRemotePolicy(deviceRoom = "", schoolId = "") {
       }
     } catch (error) {
       if (/NOT_FOUND|not found/i.test(String(error.message))) {
+        if (clearOfflineLock) await chrome.storage.local.set({ offlineLock: false });
         await chrome.storage.local.remove("remotePolicy");
         await applyRules();
         return true;
@@ -357,7 +358,10 @@ async function syncRemotePolicy(deviceRoom = "", schoolId = "") {
     }
   }
   if (selectedPolicy) {
-    await chrome.storage.local.set({ remotePolicy: selectedPolicy });
+    await chrome.storage.local.set({
+      remotePolicy: selectedPolicy,
+      ...(clearOfflineLock ? { offlineLock: false } : {})
+    });
     await applyRules();
     return true;
   }
@@ -375,7 +379,11 @@ async function reportSync() {
   let policySynced = false;
   try {
     const saved = await chrome.storage.local.get("deviceRoom");
-    policySynced = await syncRemotePolicy(device?.room || saved.deviceRoom || "", device?.schoolId || "");
+    policySynced = await syncRemotePolicy(
+      device?.room || saved.deviceRoom || "",
+      device?.schoolId || "",
+      Boolean(device)
+    );
   } catch (error) { console.warn("Focus Guard could not refresh the navigation policy:", error.message || error); }
   if (device?.currentUrl) {
     recentUrlWriteQueue = recentUrlWriteQueue.then(() => recordRecentUrl(device.currentUrl))
