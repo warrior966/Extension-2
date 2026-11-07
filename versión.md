@@ -424,3 +424,14 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - Se actualiza el manifiesto a `4.0.9`.
 
 **Pendiente de prueba:** recargar la extensión y comprobar que `login()` ya no está definido en la consola del Service Worker y que el acceso habitual al panel sigue funcionando.
+
+
+## Versión 4.1.0
+
+### Corrección de transición a lista blanca
+- Se evita que la sincronización aplique primero una política con el bloqueo offline todavía activo cuando el dispositivo ya se ha sincronizado correctamente.
+- Al guardar la política remota obtenida de Firestore, se retira el bloqueo offline de forma coordinada con la actualización de la política, únicamente si la sincronización del dispositivo también ha tenido éxito.
+- Si falla la sincronización del dispositivo o de la política, se conserva el bloqueo de seguridad.
+- La aplicación de reglas sigue comprobando las pestañas abiertas para hacer efectiva la política actualizada.
+
+**Validación pendiente:** no se han realizado pruebas en un Chromebook ni contra Firebase real. Tras actualizar, recarga la extensión y comprueba la transición con una lista blanca de prueba.
