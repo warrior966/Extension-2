@@ -435,3 +435,14 @@ El manifiesto de Chrome se actualiza a **3.0.0**.
 - La aplicación de reglas sigue comprobando las pestañas abiertas para hacer efectiva la política actualizada.
 
 **Validación pendiente:** no se han realizado pruebas en un Chromebook ni contra Firebase real. Tras actualizar, recarga la extensión y comprueba la transición con una lista blanca de prueba.
+
+
+## Versión 4.1.1
+
+### Separación entre sincronización de política y registro del dispositivo
+- La extensión deja de exigir que la escritura del registro de actividad del dispositivo tenga éxito para retirar el bloqueo offline.
+- Si la lectura de la política remota se completa correctamente, se aplica esa política y se retira el bloqueo temporal, aunque falle la escritura de telemetría del dispositivo.
+- Si no se puede recuperar la política remota, se conserva el bloqueo de seguridad.
+- Se diferencia el estado de sincronización completa del estado en el que la política se ha actualizado pero no el registro del dispositivo.
+
+**Validación pendiente:** no se han realizado pruebas en un Chromebook ni contra Firebase real.
