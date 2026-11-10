@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Focus Guard",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "Registro inicial de alumnos por colegio y clase, con perfil bloqueado desde el panel.",
   "permissions": [
     "storage",
