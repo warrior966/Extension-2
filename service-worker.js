@@ -382,19 +382,24 @@ async function reportSync() {
     policySynced = await syncRemotePolicy(
       device?.room || saved.deviceRoom || "",
       device?.schoolId || "",
-      Boolean(device)
+      true
     );
   } catch (error) { console.warn("Focus Guard could not refresh the navigation policy:", error.message || error); }
   if (device?.currentUrl) {
     recentUrlWriteQueue = recentUrlWriteQueue.then(() => recordRecentUrl(device.currentUrl))
       .catch(error => console.warn("Focus Guard could not save current URL history:", error.message || error));
   }
-  if (device && policySynced) {
-    await chrome.storage.local.set({ offlineLock: false, syncStatus: "ok", syncError: "", lastSyncAt: device.lastSeen });
+  if (policySynced) {
+    await chrome.storage.local.set({
+      offlineLock: false,
+      syncStatus: device ? "ok" : "policy_ok",
+      syncError: device ? "" : "Política actualizada; no se pudo actualizar el registro de actividad.",
+      ...(device ? { lastSyncAt: device.lastSeen } : {})
+    });
     await applyRules();
     return device;
   }
-  await chrome.storage.local.set({ offlineLock: true, syncStatus: "offline", syncError: "No se pudo conectar con Firebase: bloqueo total activado." });
+  await chrome.storage.local.set({ offlineLock: true, syncStatus: "offline", syncError: "No se pudo recuperar la política de Firebase: bloqueo total activado." });
   await applyRules();
   return null;
 }
